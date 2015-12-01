@@ -83,19 +83,39 @@ class StoredBlockchain(dataFolderOpt: Option[String])
   //if there are some uncommited changes from last run, discard'em
   if (signaturesIndex.size() > 0) database.rollback()
 
+  private val MaxRollback = 10
+
   override def appendBlock(block: Block): BlockChain = synchronized {
-    val lastBlock = blockStorage.readBlock(height()).map(_.uniqueId)
-    if (lastBlock.getOrElse(block.uniqueId) sameElements block.referenceField.value) {
+    val lastBlock = blockStorage.readBlock(height())
+    require(height() == 0 || lastBlock.isDefined, "Should be able to get last block")
+    val parent = block.referenceField
+    if (lastBlock.getOrElse(block).uniqueId sameElements parent.value) {
       val h = height() + 1
       blockStorage.writeBlock(h, block)
         .flatMap(_ => Try(signaturesIndex.put(h, block.uniqueId))) match {
         case Success(_) => database.commit()
         case Failure(t) => log.error("Error while storing blockchain a change: ", t)
       }
-    } else {
-      log.error("Appending block with parent different from last block in current blockchain:\n" +
-        s"parent: ${lastBlock.getOrElse("empty".getBytes).mkString}\n" +
-        s"current: ${block.referenceField.value.mkString}")
+    } else blockById(parent.value) match {
+      case Some(commonBlock) => Try {
+        val branchPoint = heightOf(commonBlock).get
+        if (height() - branchPoint <= MaxRollback) {
+          val blockScore = consensusModule.blockScore(commonBlock)
+          val currentScore = (branchPoint to height()).map(i => consensusModule.blockScore(blockAt(i).get)).sum
+          if(blockScore > currentScore) {
+            log.info(s"Replace blocks after $branchPoint with block ")
+            removeAfter(commonBlock.uniqueId)
+            appendBlock(block)
+          }
+        } else {
+          log.warn("Trying to rollback to much blocks")
+        }
+      } recover {
+        case e =>
+          log.warn(e.getMessage)
+      }
+      case None =>
+        log.warn(s"Appending block ${parent.json} which parent is not in blockchain")
     }
     this
   }
