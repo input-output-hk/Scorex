@@ -1,5 +1,6 @@
 package scorex.transaction.state.database.blockchain
 
+import better.files._
 import org.mapdb.DBMaker
 import scorex.account.Account
 import scorex.block.Block
@@ -7,16 +8,13 @@ import scorex.consensus.ConsensusModule
 import scorex.transaction.{BlockChain, TransactionModule}
 import scorex.utils.ScorexLogging
 
-
+import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
-import better.files._
-import scala.collection.JavaConversions._
-
 /**
- * If no datafolder provided, blockchain lives in RAM (useful for tests)
- */
+  * If no datafolder provided, blockchain lives in RAM (useful for tests)
+  */
 
 class StoredBlockchain(dataFolderOpt: Option[String])
                       (implicit consensusModule: ConsensusModule[_],
@@ -45,7 +43,7 @@ class StoredBlockchain(dataFolderOpt: Option[String])
     override def readBlock(height: Int): Option[Block] = {
       Try(blockFile(height).byteArray)
         .flatMap(bs => Block.parse(bs))
-        .recoverWith {case t =>
+        .recoverWith { case t =>
           log.error(s"Error while reading a block for height $height", t)
           Failure(t)
         }.toOption
@@ -85,14 +83,39 @@ class StoredBlockchain(dataFolderOpt: Option[String])
   //if there are some uncommited changes from last run, discard'em
   if (signaturesIndex.size() > 0) database.rollback()
 
-
+  private val MaxRollback = 10
 
   override def appendBlock(block: Block): BlockChain = synchronized {
-    val h = height() + 1
-    blockStorage.writeBlock(h, block)
-      .flatMap(_ => Try(signaturesIndex.put(h, block.uniqueId))) match {
-      case Success(_) => database.commit()
-      case Failure(t) => log.error("Error while storing blockchain a change: ", t)
+    val lastBlock = blockStorage.readBlock(height())
+    require(height() == 0 || lastBlock.isDefined, "Should be able to get last block")
+    val parent = block.referenceField
+    if (lastBlock.getOrElse(block).uniqueId sameElements parent.value) {
+      val h = height() + 1
+      blockStorage.writeBlock(h, block)
+        .flatMap(_ => Try(signaturesIndex.put(h, block.uniqueId))) match {
+        case Success(_) => database.commit()
+        case Failure(t) => log.error("Error while storing blockchain a change: ", t)
+      }
+    } else blockById(parent.value) match {
+      case Some(commonBlock) => Try {
+        val branchPoint = heightOf(commonBlock).get
+        if (height() - branchPoint <= MaxRollback) {
+          val blockScore = consensusModule.blockScore(commonBlock)
+          val currentScore = (branchPoint to height()).map(i => consensusModule.blockScore(blockAt(i).get)).sum
+          if(blockScore > currentScore) {
+            log.info(s"Replace blocks after $branchPoint with block ")
+            removeAfter(commonBlock.uniqueId)
+            appendBlock(block)
+          }
+        } else {
+          log.warn("Trying to rollback to much blocks")
+        }
+      } recover {
+        case e =>
+          log.warn(e.getMessage)
+      }
+      case None =>
+        log.warn(s"Appending block ${parent.json} which parent is not in blockchain")
     }
     this
   }
