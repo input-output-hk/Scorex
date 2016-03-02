@@ -46,13 +46,18 @@ trait Box {
 
   val memo: Array[Byte]
   val value: Long
+
+  val validationLevel: Any
+  val validationType: Any
+  val validationClass: Any
 }
 
 /**
-  * todo: Modifier
+  * todo: modifier
   */
 
 trait BoxModifier {
+  val box: Box
   val key: Any
 }
 
