@@ -1,7 +1,4 @@
-package scorex.transaction
-
-import scorex.account.Account
-
+package scorex.transaction.account
 
 trait BalanceSheet {
   def balance(address: String, height: Option[Int] = None): Long

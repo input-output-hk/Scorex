@@ -1,7 +1,7 @@
 package scorex.perma.consensus
 
 import akka.actor.ActorRef
-import scorex.account.{Account, PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl

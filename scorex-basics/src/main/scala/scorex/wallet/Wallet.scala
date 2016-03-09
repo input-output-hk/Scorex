@@ -4,9 +4,9 @@ import java.io.File
 
 import com.google.common.primitives.{Bytes, Ints}
 import org.mapdb.{DBMaker, Serializer}
-import scorex.account.PrivateKeyAccount
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash
+import scorex.transaction.account.PrivateKeyAccount
 import scorex.utils.ScorexLogging
 
 import scala.collection.JavaConversions._

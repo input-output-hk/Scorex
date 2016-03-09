@@ -1,13 +1,13 @@
-package scorex.account
+package scorex.transaction.account
 
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.SecureCryptographicHash
 import scorex.crypto.hash.SecureCryptographicHash._
+import scorex.transaction.StateElement
 
 
-class Account(val address: String) extends Serializable {
+class Account(val address: String) extends StateElement {
 
-  lazy val bytes = Base58.decode(address).get
+  override lazy val bytes = Base58.decode(address).get
 
   override def toString: String = address
 

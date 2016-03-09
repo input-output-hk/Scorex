@@ -1,7 +1,7 @@
 package scorex.transaction.state.database.blockchain
 
 import org.mapdb.{DB, DBMaker}
-import scorex.account.Account
+import scorex.transaction.account.Account
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.consensus.ConsensusModule

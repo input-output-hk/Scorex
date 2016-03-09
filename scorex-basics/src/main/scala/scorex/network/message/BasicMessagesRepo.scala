@@ -10,7 +10,7 @@ import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.singing.SigningFunctions
 import scorex.crypto.singing.SigningFunctions.Signature
 import scorex.network.message.Message._
-import scorex.transaction.{History, TransactionModule}
+import scorex.transaction.{TransactionModule, History}
 
 import scala.util.Try
 
@@ -42,7 +42,7 @@ class BasicMessagesRepo()(implicit val transactionalModule: TransactionModule[_]
       val lengthBytes = util.Arrays.copyOfRange(bytes, 0, DataLength)
       val length = Ints.fromByteArray(lengthBytes)
 
-      assert (bytes.length == DataLength + (length * (AddressLength + PortLength)), "Data does not match length")
+      assert(bytes.length == DataLength + (length * (AddressLength + PortLength)), "Data does not match length")
 
       (0 until length).map { i =>
         val position = lengthBytes.length + (i * (AddressLength + PortLength))

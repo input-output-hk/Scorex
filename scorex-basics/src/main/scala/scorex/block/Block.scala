@@ -3,11 +3,11 @@ package scorex.block
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
-import scorex.account.{PrivateKeyAccount, PublicKeyAccount}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.transaction.TransactionModule
+import scorex.transaction.account.{PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Try}
@@ -49,7 +49,7 @@ trait Block extends ScorexLogging {
 
   lazy val encodedId: String = Base58.encode(uniqueId)
 
-  lazy val transactions = transactionModule.transactions(this)
+  lazy val transactions: Seq[Transaction] = transactionModule.transactions(this)
 
   lazy val fee = consensusModule.feesDistribution(this).values.sum
 
@@ -112,9 +112,7 @@ object Block extends ScorexLogging {
 
   val BlockIdLength = EllipticCurveImpl.SignatureLength
 
-  def parse[CDT, TDT](bytes: Array[Byte])
-                     (implicit consModule: ConsensusModule[CDT],
-                      transModule: TransactionModule[TDT]): Try[Block] = Try {
+  def parse[CDT, TDT](bytes: Array[Byte])(implicit consModule: ConsensusModule[CDT], transModule: TransactionModule[TDT]): Try[Block] = Try {
 
     val version = bytes.head
 
@@ -169,15 +167,15 @@ object Block extends ScorexLogging {
     Failure(t)
   }
 
-  def build[CDT, TDT](version: Byte,
-                      timestamp: Long,
-                      reference: BlockId,
-                      consensusData: CDT,
-                      transactionData: TDT,
-                      generator: PublicKeyAccount,
-                      signature: Array[Byte])
-                     (implicit consModule: ConsensusModule[CDT],
-                      transModule: TransactionModule[TDT]): Block = {
+  def build[CDT, TT, TDT](version: Byte,
+                          timestamp: Long,
+                          reference: BlockId,
+                          consensusData: CDT,
+                          transactionData: TDT,
+                          generator: PublicKeyAccount,
+                          signature: Array[Byte])
+                         (implicit consModule: ConsensusModule[CDT],
+                          transModule: TransactionModule[TDT]): Block = {
     new Block {
       override type ConsensusDataType = CDT
       override type TransactionDataType = TDT

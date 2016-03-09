@@ -2,7 +2,7 @@ package scorex.lagonaki.integration
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.BalanceSheet
+import scorex.transaction.account.BalanceSheet
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.utils.ScorexLogging
 

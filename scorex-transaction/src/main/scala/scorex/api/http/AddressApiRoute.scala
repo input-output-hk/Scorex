@@ -7,10 +7,10 @@ import akka.actor.ActorRefFactory
 import com.wordnik.swagger.annotations._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import scorex.account.{Account, PublicKeyAccount}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
 import scorex.transaction.LagonakiState
+import scorex.transaction.account.{PublicKeyAccount, Account}
 import scorex.wallet.Wallet
 import spray.http.MediaTypes._
 import spray.routing.Route

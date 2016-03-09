@@ -1,7 +1,7 @@
 package scorex.consensus.qora
 
 import com.google.common.primitives.{Bytes, Longs}
-import scorex.account.{Account, PrivateKeyAccount}
+import scorex.transaction.account.{BalanceSheet, Account, PrivateKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.{ConsensusModule, LagonakiConsensusModule}
 import scorex.crypto.EllipticCurveImpl
@@ -98,8 +98,8 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     val history = transactionModule.blockStorage.history
     val state = transactionModule.blockStorage.state
 
-    require(state.isInstanceOf[State with BalanceSheet])
-    val generationBalance = state.asInstanceOf[State with BalanceSheet].generationBalance(account)
+    require(state.isInstanceOf[AccountMinimalState with BalanceSheet])
+    val generationBalance = state.asInstanceOf[AccountMinimalState with BalanceSheet].generationBalance(account)
     require(generationBalance > 0, "Zero generating balance in generateNextBlock")
     require(history.isInstanceOf[BlockChain])
 

@@ -1,13 +1,12 @@
 package scorex.transaction
 
-import com.google.common.primitives.{Bytes, Ints}
-import play.api.libs.json.{JsObject, Json}
-import scorex.account.{Account, PrivateKeyAccount, PublicKeyAccount}
+import com.google.common.primitives.Ints
 import scorex.app.Application
 import scorex.block.{Block, BlockField}
 import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
+import scorex.transaction.account.{Account, AccountTransaction, PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.blockchain.{StoredBlockTree, StoredBlockchain, StoredState}
 import scorex.transaction.state.wallet.Payment
@@ -16,24 +15,7 @@ import scorex.wallet.Wallet
 
 import scala.concurrent.duration._
 import scala.util.Try
-
-case class TransactionsBlockField(override val value: Seq[Transaction])
-  extends BlockField[Seq[Transaction]] {
-
-  import SimpleTransactionModule.MaxTransactionsPerBlock
-
-  override val name = "transactions"
-
-  override lazy val json: JsObject = Json.obj(name -> Json.arr(value.map(_.json)))
-
-  override lazy val bytes: Array[Byte] = {
-    val txCount = value.size.ensuring(_ <= MaxTransactionsPerBlock).toByte
-    value.foldLeft(Array(txCount)) { case (bs, tx) =>
-      val txBytes = tx.bytes
-      bs ++ Bytes.ensureCapacity(Ints.toByteArray(txBytes.length), 4, 0) ++ txBytes
-    }
-  }
-}
+import shapeless.Typeable._
 
 
 class SimpleTransactionModule(implicit val settings: TransactionSettings, application: Application)
@@ -64,7 +46,6 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
     }
 
     override val state = new StoredState(settings.dataDirOpt.map(_ + "/state.mapdb"))
-
   }
 
   /**
@@ -78,7 +59,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
       case false =>
         val txData = bytes.tail
         val txCount = bytes.head // so 255 txs max
-        formBlockData((1 to txCount).foldLeft((0: Int, Seq[LagonakiTransaction]())) { case ((pos, txs), _) =>
+        formBlockData((1 to txCount).foldLeft((0: Int, Seq[AccountTransaction]())) { case ((pos, txs), _) =>
           val transactionLengthBytes = txData.slice(pos, pos + TransactionSizeLength)
           val transactionLength = Ints.fromByteArray(transactionLengthBytes)
           val transactionBytes = txData.slice(pos + TransactionSizeLength, pos + TransactionSizeLength + transactionLength)
@@ -96,7 +77,13 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
-    blockStorage.state.validate(UnconfirmedTransactionsDatabaseImpl.all()).sortBy(- _.fee).take(MaxTransactionsPerBlock)
+    blockStorage.state
+      .validate(UnconfirmedTransactionsDatabaseImpl.all())
+      .sortBy(-_.fee)
+      .take(MaxTransactionsPerBlock)
+      .cast[StoredInBlock]
+      .getOrElse(Seq())
+
 
   //todo: check: clear unconfirmed txs on receiving a block
   override def clearFromUnconfirmed(data: StoredInBlock): Unit = {
@@ -111,12 +98,15 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
     }
   }
 
-  override def onNewOffchainTransaction(transaction: Transaction): Unit =
-    if (UnconfirmedTransactionsDatabaseImpl.putIfNew(transaction)) {
-      val spec = TransactionalMessagesRepo.TransactionMessageSpec
-      val ntwMsg = Message(spec, Right(transaction), None)
-      networkController ! NetworkController.SendToNetwork(ntwMsg, Broadcast)
-    }
+  override def onNewOffchainTransaction(transaction: Transaction): Unit = transaction match {
+    case tx: LagonakiTransaction =>
+      if (UnconfirmedTransactionsDatabaseImpl.putIfNew(tx)) {
+        val spec = TransactionalMessagesRepo.TransactionMessageSpec
+        val ntwMsg = Message(spec, Right(tx), None)
+        networkController ! NetworkController.SendToNetwork(ntwMsg, Broadcast)
+      }
+    case _ => throw new Error("Wrong kind of transaction!")
+  }
 
   def createPayment(payment: Payment, wallet: Wallet): Option[PaymentTransaction] = {
     wallet.privateKeyAccount(payment.sender).map { sender =>
@@ -157,11 +147,10 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
 
   override def isValid(block: Block): Boolean =
     blockStorage.state.isValid(block.transactions, blockStorage.history.heightOf(block))
-
 }
 
 object SimpleTransactionModule {
-  type StoredInBlock = Seq[Transaction]
+  type StoredInBlock = Seq[AccountTransaction]
 
   val MaxTimeForUnconfirmed = 1.hour
   val MaxTransactionsPerBlock = 100

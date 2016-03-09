@@ -1,7 +1,7 @@
 package scorex.api.http
 
 import play.api.libs.json.{JsObject, JsValue}
-import scorex.account.Account
+import scorex.transaction.account.Account
 import scorex.wallet.Wallet
 
 

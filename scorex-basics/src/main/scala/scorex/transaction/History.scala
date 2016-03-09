@@ -1,10 +1,10 @@
 package scorex.transaction
 
-import scorex.account.Account
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.crypto.encode.Base58
 import scorex.transaction.BlockStorage.BlocksToProcess
+import scorex.transaction.account.Account
 
 import scala.util.Try
 

@@ -1,14 +1,13 @@
 package scorex.transaction.state.database
 
-import scorex.transaction.Transaction
-
+import scorex.transaction.account.AccountTransaction
 
 trait UnconfirmedTransactionsDatabase {
-  def putIfNew(tx: Transaction): Boolean
+  def putIfNew(tx: AccountTransaction): Boolean
 
-  def all(): Seq[Transaction]
+  def all(): Seq[AccountTransaction]
 
-  def getBySignature(signature: Array[Byte]): Option[Transaction]
+  def getBySignature(signature: Array[Byte]): Option[AccountTransaction]
 
-  def remove(tx: Transaction)
+  def remove(tx: AccountTransaction)
 }

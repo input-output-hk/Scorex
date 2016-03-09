@@ -1,12 +1,12 @@
 package scorex.lagonaki.unit
 
 import org.scalatest.{FunSuite, Matchers}
-import scorex.account.PrivateKeyAccount
 import scorex.block.Block
 import scorex.consensus.nxt.{NxtLikeConsensusBlockData, NxtLikeConsensusModule}
 import scorex.consensus.qora.{QoraLikeConsensusBlockData, QoraLikeConsensusModule}
 import scorex.lagonaki.TestingCommons
 import scorex.transaction._
+import scorex.transaction.account.{AccountTransaction, PrivateKeyAccount}
 
 import scala.util.Random
 
@@ -25,9 +25,9 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val gs = Array.fill(NxtLikeConsensusModule.GeneratorSignatureLength)(Random.nextInt(100).toByte)
 
     val sender = new PrivateKeyAccount(reference.dropRight(2))
-    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
+    val tx = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
 
-    val tbd = Seq(tx)
+    val tbd: Seq[AccountTransaction] = Seq(tx)
     val cbd = new NxtLikeConsensusBlockData {
       override val generationSignature: Array[Byte] = gs
       override val baseTarget: Long = bt
@@ -55,9 +55,9 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val gs = Array.fill(QoraLikeConsensusModule.GeneratorSignatureLength)(Random.nextInt(100).toByte)
 
     val sender = new PrivateKeyAccount(reference.dropRight(2))
-    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
+    val tx = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
 
-    val tbd = Seq(tx)
+    val tbd: Seq[AccountTransaction] = Seq(tx)
     val cbd = new QoraLikeConsensusBlockData {
       override val generatorSignature: Array[Byte] = gs
       override val generatingBalance: Long = gb
@@ -78,5 +78,4 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     assert(parsedBlock.versionField.value == version)
     assert(parsedBlock.signerDataField.value.generator.publicKey.sameElements(gen.publicKey))
   }
-
 }

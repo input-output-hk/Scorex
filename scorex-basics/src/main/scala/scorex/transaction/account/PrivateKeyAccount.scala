@@ -1,4 +1,4 @@
-package scorex.account
+package scorex.transaction.account
 
 import scorex.crypto.EllipticCurveImpl
 

@@ -1,12 +1,10 @@
 package scorex.lagonaki.integration
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
-import scorex.account.PublicKeyAccount
-import scorex.block.Block
+import scorex.transaction.account.{AccountTransaction, BalanceSheet, PublicKeyAccount}
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.{BalanceSheet, Transaction}
 import scorex.utils.{ScorexLogging, untilTimeout}
 
 import scala.concurrent.duration._
@@ -63,7 +61,7 @@ with TransactionTestingCommons {
 
     cleanTransactionPool()
 
-    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx))
+    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx.asInstanceOf[AccountTransaction]))
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size
     val tx = genValidTransaction(randomAmnt = false)
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size + 1

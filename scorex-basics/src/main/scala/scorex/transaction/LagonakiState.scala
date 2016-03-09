@@ -1,3 +1,5 @@
 package scorex.transaction
 
-trait LagonakiState extends State with BalanceSheet with AccountTransactionsHistory
+import scorex.transaction.account.BalanceSheet
+
+trait LagonakiState extends AccountMinimalState with BalanceSheet with AccountTransactionsHistory

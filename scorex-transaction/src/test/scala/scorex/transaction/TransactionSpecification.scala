@@ -2,7 +2,7 @@ package scorex.transaction
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.account.PrivateKeyAccount
+import scorex.transaction.account.PrivateKeyAccount
 
 
 class TransactionSpecification extends PropSpec

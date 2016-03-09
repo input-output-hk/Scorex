@@ -1,7 +1,7 @@
 package scorex.lagonaki.server
 
-import scorex.account.Account
-import scorex.transaction.{BalanceSheet, GenesisTransaction, Transaction}
+import scorex.transaction.account.{BalanceSheet, Account}
+import scorex.transaction.{GenesisTransaction, Transaction}
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.duration._

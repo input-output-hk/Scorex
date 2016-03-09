@@ -1,13 +1,13 @@
 package scorex.transaction
 
 /**
-  * reason to change account balance
+  * A reason to change a system state
   */
 trait StateChangeReason {
   /**
-    * A transaction could be serialized into binary form
+    * A reason could be serialized into a binary form
     */
-  def bytes: Array[Byte]
+  val bytes: Array[Byte]
 
-  val signature: Array[Byte]
+  val serializedProof: Array[Byte]
 }

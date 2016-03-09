@@ -1,6 +1,6 @@
 package scorex.transaction
 
-import scorex.account.Account
+import scorex.transaction.account.Account
 
 trait AccountTransactionsHistory {
   def accountTransactions(address: String): Array[_ <: Transaction] = {
@@ -13,5 +13,4 @@ trait AccountTransactionsHistory {
   }
 
   def accountTransactions(account: Account): Array[_ <: Transaction]
-
 }

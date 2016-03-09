@@ -1,8 +1,9 @@
 package scorex.crypto
 
-import scorex.account.PrivateKeyAccount
+
 import scorex.crypto.singing.Curve25519
 import scorex.crypto.singing.SigningFunctions.{MessageToSign, Signature}
+import scorex.transaction.account.PrivateKeyAccount
 
 /**
   * This implementation is being used from many places in the code. We consider easy switching from one

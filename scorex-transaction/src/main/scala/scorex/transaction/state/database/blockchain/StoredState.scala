@@ -5,11 +5,11 @@ import java.io.{DataInput, DataOutput, File}
 import com.google.common.primitives.Longs
 import org.mapdb._
 import play.api.libs.json.{JsNumber, JsObject}
-import scorex.account.Account
 import scorex.block.Block
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.transaction.LagonakiTransaction.ValidationResult
 import scorex.transaction._
+import scorex.transaction.account.Account
 import scorex.utils.ScorexLogging
 
 import scala.annotation.tailrec
@@ -76,6 +76,8 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
   }
   db.rollback()
 
+  override lazy val version: Int = stateHeight
+
   private def accountChanges(key: Address): HTreeMap[Integer, Row] = db.hashMap(
     key.toString,
     Serializer.INTEGER,
@@ -102,18 +104,18 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
       val change = Row(ch._2._1, ch._2._2, Option(lastStates.get(ch._1)).getOrElse(0))
       accountChanges(ch._1).put(h, change)
       lastStates.put(ch._1, h)
-      ch._2._2.foreach(t => includedTx.put(t.signature, h))
+      ch._2._2.foreach(t => includedTx.put(t.serializedProof, h))
     }
     db.commit()
   }
 
-  def rollbackTo(rollbackTo: Int): State = synchronized {
+  override def rollbackTo(rollbackTo: Int): StoredState = synchronized {
     def deleteNewer(key: Address): Unit = {
       val currentHeight = lastStates.get(key)
       if (currentHeight > rollbackTo) {
         val dataMap = accountChanges(key)
         val changes = dataMap.remove(currentHeight)
-        changes.reason.foreach(t => includedTx.remove(t.signature))
+        changes.reason.foreach(t => includedTx.remove(t.serializedProof))
         val prevHeight = changes.lastRowHeight
         lastStates.put(key, prevHeight)
         deleteNewer(key)
@@ -127,7 +129,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     this
   }
 
-  override def processBlock(block: Block): Try[State] = Try {
+  override def processBlock(block: Block): Try[StoredState] = Try {
     val trans = block.transactions
     trans.foreach(t => if (included(t).isDefined) throw new Error(s"Transaction $t is already in state"))
     val fees: Map[Account, (AccState, Reason)] = block.consensusModule.feesDistribution(block)
@@ -150,7 +152,6 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
           tx.balanceChanges().foldLeft(changes) { case (iChanges, (acc, delta)) =>
             //update balances sheet
             val add = acc.address
-            val t: Map[Account, (AccState, Reason)] = iChanges
             val currentChange: (AccState, Reason) = iChanges.getOrElse(acc, (AccState(balance(add)), Seq.empty))
             iChanges.updated(acc, (AccState(currentChange._1.balance + delta), tx +: currentChange._2))
           }
@@ -198,8 +199,12 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     }
   }
 
-  def included(tx: Transaction, heightOpt: Option[Int] = None): Option[Int] =
-    Option(includedTx.get(tx.signature)).filter(_ < heightOpt.getOrElse(Int.MaxValue))
+  def included(transaction: Transaction,
+               heightOpt: Option[Int] = None): Option[Int] = transaction match {
+    case tx: LagonakiTransaction =>
+      Option(includedTx.get(tx.signature)).filter(_ < heightOpt.getOrElse(Int.MaxValue))
+    case _ => throw new Error("wrong kind of transaction")
+  }
 
   //return seq of valid transactions
   @tailrec
@@ -208,7 +213,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     val txs = trans.filter(t => included(t).isEmpty && isValid(t, height))
     val nb = calcNewBalances(txs, Map.empty)
     val negativeBalances: Map[Account, (AccState, Reason)] = nb.filter(b => b._2._1.balance < 0)
-    val toRemove: Iterable[Transaction] = negativeBalances flatMap { b =>
+    val toRemove = negativeBalances flatMap { b =>
       val accTransactions = trans.filter(_.isInstanceOf[PaymentTransaction]).map(_.asInstanceOf[PaymentTransaction])
         .filter(_.sender.address == b._1.address)
       var sumBalance = b._2._1.balance
@@ -218,9 +223,9 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
         prevSum < 0
       }
     }
-    val validTransactions = txs.filter(t => !toRemove.exists(tr => tr.signature sameElements t.signature))
+    val validTransactions = txs.filter(t => !toRemove.exists(tr => tr.signature sameElements t.serializedProof))
     if (validTransactions.size == txs.size) txs
-    else if(validTransactions.nonEmpty) validate(validTransactions, heightOpt)
+    else if (validTransactions.nonEmpty) validate(validTransactions, heightOpt)
     else validTransactions
   }
 

@@ -1,6 +1,6 @@
 package scorex.consensus
 
-import scorex.account.Account
+import scorex.transaction.account.Account
 import scorex.block.Block
 
 /**

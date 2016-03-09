@@ -3,12 +3,12 @@ package scorex.transaction.state.database.blockchain
 import java.io.File
 
 import org.mapdb.{DB, DBMaker, HTreeMap, Serializer}
-import scorex.account.Account
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.consensus.ConsensusModule
 import scorex.crypto.encode.Base58
 import scorex.transaction.BlockStorage._
+import scorex.transaction.account.Account
 import scorex.transaction.{BlockTree, TransactionModule}
 import scorex.utils.ScorexLogging
 

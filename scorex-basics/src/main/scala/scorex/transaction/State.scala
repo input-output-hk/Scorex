@@ -1,14 +1,18 @@
 package scorex.transaction
 
 import scorex.block.Block
+import scorex.transaction.account.Account
 
 import scala.util.Try
 
 /**
   * Abstract functional interface of state which is a result of a sequential blocks applying
   */
-trait State {
-  private[transaction] def processBlock(block: Block): Try[State]
+
+trait MinimalState[ELEM <: StateElement] {
+  val version: Int
+
+  private[transaction] def processBlock(block: Block): Try[MinimalState[ELEM]]
 
   def isValid(tx: Transaction): Boolean = isValid(Seq(tx))
 
@@ -16,5 +20,11 @@ trait State {
 
   def validate(txs: Seq[Transaction], height: Option[Int] = None): Seq[Transaction]
 
-  private[transaction] def rollbackTo(height: Int): State
+  private[transaction] def rollbackTo(height: Int): MinimalState[ELEM]
 }
+
+trait BoxMinimalState extends MinimalState[Account]
+
+trait AccountMinimalState extends MinimalState[Account]
+
+trait AuthenticatedState[ELEM <: StateElement] extends MinimalState[ELEM]

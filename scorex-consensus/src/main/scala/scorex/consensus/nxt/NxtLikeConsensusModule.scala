@@ -1,7 +1,7 @@
 package scorex.consensus.nxt
 
 import com.google.common.primitives.Longs
-import scorex.account.{Account, PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.account.{BalanceSheet, Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.{ConsensusModule, LagonakiConsensusModule}
 import scorex.crypto.hash.FastCryptographicHash._

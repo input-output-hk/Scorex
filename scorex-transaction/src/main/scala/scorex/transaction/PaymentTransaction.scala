@@ -4,7 +4,7 @@ import java.util
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
-import scorex.account.{Account, PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
 import scorex.transaction.LagonakiTransaction.TransactionType

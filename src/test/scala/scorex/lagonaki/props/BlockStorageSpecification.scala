@@ -3,7 +3,7 @@ package scorex.lagonaki.props
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.account.PrivateKeyAccount
+import scorex.transaction.account.PrivateKeyAccount
 import scorex.block.Block
 import scorex.lagonaki.BlockTestingCommons
 import scorex.utils._

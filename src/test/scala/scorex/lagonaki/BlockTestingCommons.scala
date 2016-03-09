@@ -1,6 +1,6 @@
 package scorex.lagonaki
 
-import scorex.account.PrivateKeyAccount
+import scorex.transaction.account.{AccountTransaction, PrivateKeyAccount}
 import scorex.block.Block
 import scorex.block.Block._
 import scorex.consensus.nxt.{NxtLikeConsensusBlockData, NxtLikeConsensusModule}
@@ -21,7 +21,7 @@ trait BlockTestingCommons extends TestingCommons {
   protected var lastBlockId: BlockId = genesis.uniqueId
 
   def genBlock(bt: Long, gs: Array[Byte], seed: Array[Byte], parentId: Option[BlockId] = None,
-               transactions: Seq[Transaction] = Seq.empty)
+               transactions: Seq[AccountTransaction] = Seq.empty)
               (implicit consensusModule: NxtLikeConsensusModule, transactionModule: SimpleTransactionModule): Block = {
 
     val reference = parentId.getOrElse(lastBlockId)
@@ -40,7 +40,7 @@ trait BlockTestingCommons extends TestingCommons {
     block
   }
 
-  def genTransaction(seed: Array[Byte]): Transaction = {
+  def genTransaction(seed: Array[Byte]):PaymentTransaction = {
     val sender = new PrivateKeyAccount(seed)
     PaymentTransaction(sender, gen, 1, 1, System.currentTimeMillis() - 5000)
   }

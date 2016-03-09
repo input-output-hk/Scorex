@@ -2,9 +2,10 @@ package scorex.transaction
 
 import com.google.common.primitives.Ints
 import play.api.libs.json.Json
-import scorex.account.Account
+import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.transaction.LagonakiTransaction.{ValidationResult, _}
+import scorex.transaction.account.AccountTransaction
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -15,7 +16,7 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
                                    val amount: Long,
                                    override val fee: Long,
                                    override val timestamp: Long,
-                                   override val signature: Array[Byte]) extends Transaction {
+                                   override val signature: Array[Byte]) extends AccountTransaction {
 
   lazy val deadline = timestamp + 24.hours.toMillis
 
