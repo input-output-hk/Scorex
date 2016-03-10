@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.ads.merkle.MerkleTree
+import scorex.crypto.storage.merkle.MerkleTree
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.perma.settings.PermaConstants
 

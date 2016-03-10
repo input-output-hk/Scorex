@@ -5,7 +5,7 @@ import java.io.File
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.ads.merkle.AuthDataBlock
+import scorex.crypto.storage.merkle.AuthDataBlock
 
 
 class AuthDataStorageSpecification extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks with Matchers {

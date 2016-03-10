@@ -1,7 +1,7 @@
 package scorex.perma.storage
 
 import org.mapdb.{HTreeMap, Serializer}
-import scorex.crypto.ads.merkle.AuthDataBlock
+import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.perma.settings.PermaConstants.{DataSegment, DataSegmentIndex}
 import scorex.storage.MapDBStorage
 

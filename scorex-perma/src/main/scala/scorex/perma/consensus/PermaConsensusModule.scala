@@ -5,7 +5,7 @@ import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.ads.merkle.AuthDataBlock
+import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.crypto.hash.CryptographicHash.Digest
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.crypto.singing.SigningFunctions.{PrivateKey, PublicKey}

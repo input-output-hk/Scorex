@@ -3,7 +3,7 @@ package scorex.perma.network
 
 import akka.actor.ActorRef
 import scorex.app.Application
-import scorex.crypto.ads.merkle.AuthDataBlock
+import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.message.{Message, MessageSpec}

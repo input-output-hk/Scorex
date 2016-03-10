@@ -4,7 +4,7 @@ import java.io.File
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.ads.merkle.AuthDataBlock
+import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
 import scorex.perma.storage.AuthDataStorage

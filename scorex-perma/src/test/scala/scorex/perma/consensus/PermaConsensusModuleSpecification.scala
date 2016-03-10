@@ -5,7 +5,7 @@ import java.io.{File, RandomAccessFile}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleTree}
+import scorex.crypto.storage.merkle.{AuthDataBlock, MerkleTree}
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
