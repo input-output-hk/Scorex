@@ -1,11 +1,12 @@
 package scorex.perma.consensus
 
 import akka.actor.ActorRef
+import scorex.crypto.storage.Storage
+import scorex.crypto.storage.auth.AuthDataBlock
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.crypto.hash.CryptographicHash.Digest
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.crypto.singing.SigningFunctions.{PrivateKey, PublicKey}
@@ -15,7 +16,6 @@ import scorex.network.message.Message
 import scorex.perma.network.GetSegmentsMessageSpec
 import scorex.perma.settings.PermaConstants
 import scorex.perma.settings.PermaConstants._
-import scorex.storage.Storage
 import scorex.transaction.TransactionModule
 import scorex.utils.{NTP, ScorexLogging, randomBytes}
 
@@ -156,7 +156,7 @@ class PermaConsensusModule(rootHash: Array[Byte], networkControllerOpt: Option[A
     require(t.s.length == SSize)
 
     val sigs = NoSig +: proofs.map(_.signature)
-    val ris = proofs.map(_.segmentIndex)
+    val ris = proofs.map(_.segment.signature.index)
     require(ris(0) == calculateIndex(publicKey, (BigInt(1, Hash(puz ++ publicKey ++ t.s)) % PermaConstants.l).toInt))
 
     val partialProofsCheck = 1.to(PermaConstants.k).foldLeft(true) { case (partialResult, i) =>
@@ -164,7 +164,7 @@ class PermaConsensusModule(rootHash: Array[Byte], networkControllerOpt: Option[A
       val rc = calculateIndex(publicKey,
         BigInt(1, Hash(puz ++ publicKey ++ proofs(i - 1).signature)).mod(PermaConstants.l).toInt)
 
-      segment.check(ris(i - 1), rootHash)() && {
+      segment.check(rootHash)() && {
         val hi = Hash(puz ++ publicKey ++ sigs(i - 1) ++ segment.data)
         EllipticCurveImpl.verify(sigs(i), hi, publicKey)
       } && (ris.length == i || rc == ris(i))
@@ -195,7 +195,7 @@ class PermaConsensusModule(rootHash: Array[Byte], networkControllerOpt: Option[A
         val sig = EllipticCurveImpl.sign(privateKey, hi)
         val rNext = calculateIndex(publicKey, BigInt(1, Hash(puz ++ publicKey ++ sig)).mod(PermaConstants.l).toInt)
 
-        (rNext, sig, seq :+ PartialProof(sig, ri, segment))
+        (rNext, sig, seq :+ PartialProof(sig, segment))
     }._3.toIndexedSeq.ensuring(_.size == PermaConstants.k)
 
     Ticket(publicKey, s, proofs)

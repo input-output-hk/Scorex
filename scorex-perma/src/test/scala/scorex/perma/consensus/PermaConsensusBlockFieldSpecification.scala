@@ -4,12 +4,12 @@ import java.io.File
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.storage.merkle.AuthDataBlock
+import scorex.crypto.storage.Storage
+import scorex.crypto.storage.auth.{AuthDataBlock, DataBlockSignature}
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
 import scorex.perma.storage.AuthDataStorage
 import scorex.settings.Settings
-import scorex.storage.Storage
 import scorex.utils._
 
 class PermaConsensusBlockFieldSpecification extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks with Matchers {
@@ -19,7 +19,8 @@ class PermaConsensusBlockFieldSpecification extends PropSpec with PropertyChecks
   }
 
   new File(settings.treeDir).mkdirs()
-  implicit lazy val authDataStorage: Storage[Long, AuthDataBlock[DataSegment]] = new AuthDataStorage(settings.authDataStorage)
+  implicit lazy val authDataStorage: Storage[Long, AuthDataBlock[DataSegment]] =
+    new AuthDataStorage(settings.authDataStorage)
   val consensus = new PermaConsensusModule(randomBytes())
 
   property("Encode to bytes round-trip") {
@@ -34,13 +35,13 @@ class PermaConsensusBlockFieldSpecification extends PropSpec with PropertyChecks
       val hash1 = randomBytes(PermaConsensusBlockField.HashLength)
       val hash2 = randomBytes(PermaConsensusBlockField.HashLength)
 
-      val authDataBlock: AuthDataBlock[DataSegment] = AuthDataBlock(blockdata, Seq(hash1, hash2))
+      val authDataBlock = AuthDataBlock(blockdata, DataBlockSignature(segmentIndex, Seq(hash1, hash2)))
       val initialBlock = PermaConsensusBlockField(PermaConsensusBlockData(
         math.abs(diff),
         puz,
         Ticket(pubkey, s, IndexedSeq(
-          PartialProof(signature, segmentIndex, authDataBlock),
-          PartialProof(signature2, segmentIndex, authDataBlock)
+          PartialProof(signature, authDataBlock),
+          PartialProof(signature2, authDataBlock)
         ))
       ))
       val parsedBlock = PermaConsensusBlockField.parse(initialBlock.bytes)
@@ -66,7 +67,7 @@ class PermaConsensusBlockFieldSpecification extends PropSpec with PropertyChecks
       val parsedProof = parsedBlock.value.ticket.proofs(i)
       val initialProof = initialBlock.value.ticket.proofs(i)
       assert(parsedProof.signature sameElements initialProof.signature)
-      parsedProof.segmentIndex shouldBe initialProof.segmentIndex
+      parsedProof.segment.signature.index shouldBe initialProof.segment.signature.index
       assert(parsedProof.segment.data sameElements initialProof.segment.data)
       parsedProof.segment.merklePath.size shouldBe initialProof.segment.merklePath.size
 

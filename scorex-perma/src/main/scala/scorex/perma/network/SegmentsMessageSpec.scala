@@ -1,14 +1,14 @@
 package scorex.perma.network
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
-import scorex.crypto.storage.merkle.AuthDataBlock
+import scorex.crypto.storage.auth.AuthDataBlock
 import scorex.network.message.Message.MessageCode
 import scorex.network.message.MessageSpec
 import scorex.perma.settings.PermaConstants.{DataSegment, DataSegmentIndex}
 
 import scala.util.Try
 
-
+//TODO we don't need index more
 object SegmentsMessageSpec extends MessageSpec[Map[DataSegmentIndex, AuthDataBlock[DataSegment]]] {
   override val messageCode: MessageCode = 51: Byte
 

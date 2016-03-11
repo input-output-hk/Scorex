@@ -4,8 +4,8 @@ import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json._
 import scorex.block.BlockField
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.storage.merkle.AuthDataBlock
 import scorex.crypto.hash.FastCryptographicHash
+import scorex.crypto.storage.auth.AuthDataBlock
 import scorex.perma.settings.PermaConstants
 
 import scala.annotation.tailrec
@@ -25,15 +25,8 @@ case class PermaConsensusBlockField(override val value: PermaConsensusBlockData)
       Bytes.ensureCapacity(value.ticket.s, SLength, 0) ++
       Bytes.ensureCapacity(Ints.toByteArray(value.ticket.proofs.length), 4, 0) ++
       value.ticket.proofs.foldLeft(Array.empty: Array[Byte]) { (b, p) =>
-        val proofBytes =
-          Bytes.ensureCapacity(p.signature, SignatureLength, 0) ++
-            Bytes.ensureCapacity(Longs.toByteArray(p.segmentIndex), 8, 0) ++
-            Bytes.ensureCapacity(p.segment.data, PermaConstants.segmentSize, 0) ++
-            Bytes.ensureCapacity(Ints.toByteArray(p.segment.merklePath.length), 4, 0) ++
-            p.segment.merklePath.foldLeft(Array.empty: Array[Byte]) { (acc, d) =>
-              acc ++ d
-            }
-        b ++ proofBytes
+        val blockBytes = AuthDataBlock.encode(p.segment)
+        b ++ Bytes.ensureCapacity(p.signature, SignatureLength, 0) ++ Ints.toByteArray(blockBytes.length) ++ blockBytes
       }
 
   override def json: JsObject = Json.obj(name -> Json.toJson(value))
@@ -53,22 +46,18 @@ object PermaConsensusBlockField {
     def parseProofs(from: Int, total: Int, current: Int, acc: IndexedSeq[PartialProof]): IndexedSeq[PartialProof] = {
       if (current < total) {
         val proofsStart = from
-        val signatureStart = proofsStart + SignatureLength
-        val dataStart = signatureStart + 8
-        val merklePathStart = dataStart + PermaConstants.segmentSize
+        val signatureEnd = proofsStart + SignatureLength
+        val blockStart = signatureEnd + 4
 
-        val signature = bytes.slice(proofsStart, proofsStart + SignatureLength)
-        val signatureIndex = Longs.fromByteArray(bytes.slice(signatureStart, signatureStart + 8))
-        val blockData = bytes.slice(dataStart, dataStart + PermaConstants.segmentSize)
-        val merklePathSize = Ints.fromByteArray(bytes.slice(merklePathStart, merklePathStart + 4))
-        val merklePath = (0 until merklePathSize).map { i =>
-          bytes.slice(merklePathStart + 4 + i * HashLength, merklePathStart + 4 + (i + 1) * HashLength)
-        }
+        val signature = bytes.slice(proofsStart, signatureEnd)
+        val blockSize = Ints.fromByteArray(bytes.slice(signatureEnd, blockStart))
+        val authDataBlock = AuthDataBlock.decode(bytes.slice(blockStart, blockStart + blockSize))
+
         parseProofs(
-          merklePathStart + 4 + merklePathSize * HashLength,
+          blockStart + blockSize,
           total,
           current + 1,
-          PartialProof(signature, signatureIndex, AuthDataBlock(blockData, merklePath)) +: acc
+          PartialProof(signature, authDataBlock.get) +: acc
         )
       } else {
         acc.reverse

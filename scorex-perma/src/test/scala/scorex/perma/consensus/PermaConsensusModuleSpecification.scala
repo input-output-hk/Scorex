@@ -5,13 +5,13 @@ import java.io.{File, RandomAccessFile}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.storage.merkle.{AuthDataBlock, MerkleTree}
 import scorex.crypto.hash.FastCryptographicHash
+import scorex.crypto.storage.Storage
+import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree}
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
 import scorex.perma.storage.AuthDataStorage
 import scorex.settings.Settings
-import scorex.storage.Storage
 import scorex.utils._
 
 class PermaConsensusModuleSpecification extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks
@@ -27,20 +27,20 @@ with Matchers with ScorexLogging {
   val datasetFile = settings.treeDir + "/data.file"
   new RandomAccessFile(datasetFile, "rw").setLength(PermaConstants.n * PermaConstants.segmentSize)
   log.info("Calculate tree")
-  val tree = MerkleTree.fromFile(datasetFile, settings.treeDir, PermaConstants.segmentSize, FastCryptographicHash)
+  val (tree, segmentsStorage) = MerkleTree.fromFile(datasetFile, settings.treeDir, PermaConstants.segmentSize, FastCryptographicHash)
   require(tree.nonEmptyBlocks == PermaConstants.n, s"${tree.nonEmptyBlocks} == ${PermaConstants.n}")
 
   log.info("Test tree")
   val index = PermaConstants.n - 3
-  val leaf = tree.byIndex(index).get
-  require(leaf.check(index, tree.rootHash)(FastCryptographicHash))
+  val sig = tree.byIndex(index).get
+  require(AuthDataBlock(segmentsStorage.get(index), sig).check(tree.rootHash)(FastCryptographicHash))
 
   log.info("Put ALL data to local storage")
   new File(settings.treeDir).mkdirs()
   implicit lazy val authDataStorage: Storage[Long, AuthDataBlock[DataSegment]] = new AuthDataStorage(settings.authDataStorage)
 
   def addBlock(i: Long): Unit = {
-    authDataStorage.set(i, tree.byIndex(i).get)
+    authDataStorage.set(i, AuthDataBlock(segmentsStorage.get(i).get, tree.byIndex(i).get))
     if (i > 0) {
       addBlock(i - 1)
     }

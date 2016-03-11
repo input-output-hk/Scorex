@@ -11,17 +11,15 @@ import scorex.consensus.nxt.NxtLikeConsensusModule
 import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.consensus.qora.QoraLikeConsensusModule
 import scorex.consensus.qora.api.http.QoraConsensusApiRoute
-import scorex.crypto.storage.merkle.{AuthDataBlock, MerkleTree}
 import scorex.crypto.hash.FastCryptographicHash
+import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree, TreeStorage}
 import scorex.lagonaki.api.http.{DebugApiRoute, PaymentApiRoute, PeersHttpService, ScorexApiRoute}
 import scorex.network._
 import scorex.perma.api.http.PermaConsensusApiRoute
 import scorex.perma.consensus.PermaConsensusModule
 import scorex.perma.network.{PermacoinMessagesRepo, SegmentsSynchronizer}
 import scorex.perma.settings.PermaConstants
-import scorex.perma.settings.PermaConstants._
 import scorex.perma.storage.AuthDataStorage
-import scorex.storage.Storage
 import scorex.transaction._
 
 import scala.reflect.runtime.universe._
@@ -49,12 +47,14 @@ class LagonakiApplication(val settingsFilename: String) extends Application {
       case s: String if s.equalsIgnoreCase("perma") =>
         val treeDir = new File(settings.treeDir)
         treeDir.mkdirs()
-        val authDataStorage: Storage[Long, AuthDataBlock[DataSegment]] = new AuthDataStorage(settings.authDataStorage)
+        val authDataStorage: AuthDataStorage = new AuthDataStorage(settings.authDataStorage)
         if (settings.isTrustedDealer) {
           log.info("TrustedDealer node")
           val tree = if (Files.exists(Paths.get(settings.treeDir + MerkleTree.TreeFileName + "0.mapDB"))) {
             log.info("Get existing tree")
-            new MerkleTree(settings.treeDir, PermaConstants.n, PermaConstants.segmentSize, FastCryptographicHash)
+            val levels = 0 // TODO ???
+            val treeStorage = new TreeStorage(settings.treeDir + MerkleTree.TreeFileName, levels)
+            new MerkleTree(treeStorage, PermaConstants.n, FastCryptographicHash)
           } else {
             val datasetFile = settings.treeDir + "/data.file"
             if (!Files.exists(Paths.get(datasetFile))) {
@@ -69,13 +69,14 @@ class LagonakiApplication(val settingsFilename: String) extends Application {
               }
             }
             log.info("Calculate tree")
-            val tree = MerkleTree.fromFile(datasetFile, settings.treeDir, PermaConstants.segmentSize, FastCryptographicHash)
+            val (tree, segmentsStorage) =
+              MerkleTree.fromFile(datasetFile, settings.treeDir, PermaConstants.segmentSize, FastCryptographicHash)
             require(tree.nonEmptyBlocks == PermaConstants.n, s"${tree.nonEmptyBlocks} == ${PermaConstants.n}")
 
             log.info("Put ALL data to local storage")
             new File(settings.treeDir).mkdirs()
             def addBlock(i: Long): Unit = {
-              authDataStorage.set(i, tree.byIndex(i).get)
+              authDataStorage.set(i, AuthDataBlock(segmentsStorage.get(i).get, tree.byIndex(i).get))
               if (i > 0) addBlock(i - 1)
             }
             addBlock(PermaConstants.n - 1)
@@ -87,9 +88,9 @@ class LagonakiApplication(val settingsFilename: String) extends Application {
           require(settings.rootHash sameElements tree.rootHash, "Tree root hash differs from root hash in settings")
           require(tree.byIndex(PermaConstants.n - 1).isDefined)
           require(tree.byIndex(PermaConstants.n).isEmpty)
-          val index = PermaConstants.n - 3
-          val leaf = tree.byIndex(index).get
-          require(leaf.check(index, tree.rootHash)(FastCryptographicHash))
+          //          val index = PermaConstants.n - 3
+          //          val sig = tree.byIndex(index).get
+          //          require(AuthDataBlock(,sig).check(index, tree.rootHash)(FastCryptographicHash))
 
         }
         val rootHash = settings.rootHash

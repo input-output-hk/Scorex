@@ -1,9 +1,9 @@
 package scorex.perma.storage
 
 import org.mapdb.{HTreeMap, Serializer}
-import scorex.crypto.storage.merkle.AuthDataBlock
+import scorex.crypto.storage.MapDBStorage
+import scorex.crypto.storage.auth.AuthDataBlock
 import scorex.perma.settings.PermaConstants.{DataSegment, DataSegmentIndex}
-import scorex.storage.MapDBStorage
 
 class AuthDataStorage(fileName: String) extends MapDBStorage[DataSegmentIndex, AuthDataBlock[DataSegment]](fileName) {
 

@@ -4,8 +4,8 @@ import java.io.{File, FileOutputStream}
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.storage.merkle.MerkleTree
 import scorex.crypto.hash.FastCryptographicHash
+import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree}
 import scorex.perma.settings.PermaConstants
 
 import scala.util.Random
@@ -15,15 +15,15 @@ class SegmentsMessageSpecification extends PropSpec with PropertyChecks with Gen
   val segmentsMessageSp = SegmentsMessageSpec
   val getSegmentsMessageSpec = GetSegmentsMessageSpec
   val (treeDirName: String, _, tempFile: String) = generateFile(PermaConstants.n.toInt)
-  val tree = MerkleTree.fromFile(tempFile, treeDirName, PermaConstants.segmentSize)
+  val (tree, segmentsStorage) = MerkleTree.fromFile(tempFile, treeDirName, PermaConstants.segmentSize)
 
   property("SegmentsMessageSpec: Encode to bytes round-trip") {
     forAll { (in: Seq[Long]) =>
       val indexes = in.map(Math.abs).map(_ % PermaConstants.n)
       whenever(indexes.forall(i => i < PermaConstants.n)) {
-        val data = indexes.map(i => i -> tree.byIndex(i).get).toMap
+        val data = indexes.map(i => i -> AuthDataBlock(segmentsStorage.get(i).get, tree.byIndex(i).get)).toMap
         val serialized = segmentsMessageSp.serializeData(data)
-        data.forall(s => s._2.check(s._1, tree.rootHash)(FastCryptographicHash)) shouldBe true
+        data.forall(s => s._2.check(tree.rootHash)(FastCryptographicHash)) shouldBe true
         val deserealized = segmentsMessageSp.deserializeData(serialized).get
         deserealized.keySet shouldBe indexes.toSet
         indexes.foreach { i =>
@@ -33,7 +33,7 @@ class SegmentsMessageSpecification extends PropSpec with PropertyChecks with Gen
           data(i).merklePath(1) shouldBe deserealized(i).merklePath(1)
           data(i).merklePath(2) shouldBe deserealized(i).merklePath(2)
         }
-        deserealized.forall(s => s._2.check(s._1, tree.rootHash)(FastCryptographicHash)) shouldBe true
+        deserealized.forall(s => s._2.check(tree.rootHash)(FastCryptographicHash)) shouldBe true
       }
     }
   }
