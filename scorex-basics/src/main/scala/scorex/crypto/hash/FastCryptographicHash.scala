@@ -8,8 +8,8 @@ import scorex.crypto.hash.CryptographicHash._
 
 object FastCryptographicHash extends CryptographicHash {
 
-  override val DigestSize: Int = Blake256.DigestSize
+  override val DigestSize: Int = Blake2b256.DigestSize
 
-  override def hash(in: Message): Digest = Blake256.hash(in)
+  override def hash(in: Message): Digest = Blake2b256.hash(in)
 
 }
