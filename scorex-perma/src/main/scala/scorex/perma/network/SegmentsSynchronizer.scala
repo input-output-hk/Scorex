@@ -4,8 +4,8 @@ package scorex.perma.network
 import akka.actor.ActorRef
 import scorex.app.Application
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.storage.Storage
-import scorex.crypto.storage.auth.AuthDataBlock
+import scorex.crypto.ads.Storage
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.message.{Message, MessageSpec}
 import scorex.network.{SendToChosen, ViewSynchronizer}

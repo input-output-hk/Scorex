@@ -5,7 +5,7 @@ import play.api.libs.json._
 import scorex.block.BlockField
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.storage.auth.AuthDataBlock
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.perma.settings.PermaConstants
 
 import scala.annotation.tailrec

@@ -1,15 +1,15 @@
 package scorex.perma.consensus
 
 import akka.actor.ActorRef
-import scorex.crypto.storage.Storage
-import scorex.crypto.storage.auth.AuthDataBlock
+import scorex.crypto.ads.Storage
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.hash.CryptographicHash.Digest
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.singing.SigningFunctions.{PrivateKey, PublicKey}
+import scorex.crypto.signatures.SigningFunctions.{PrivateKey, PublicKey}
 import scorex.network.NetworkController.SendToNetwork
 import scorex.network.SendToRandom
 import scorex.network.message.Message

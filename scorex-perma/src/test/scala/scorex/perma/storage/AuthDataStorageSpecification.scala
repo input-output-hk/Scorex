@@ -5,7 +5,7 @@ import java.io.File
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.storage.auth.{AuthDataBlock, DataBlockSignature}
+import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleProof}
 
 
 class AuthDataStorageSpecification extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks with Matchers {
@@ -17,7 +17,7 @@ class AuthDataStorageSpecification extends PropSpec with PropertyChecks with Gen
   val keyVal = for {
     key: Long <- Arbitrary.arbitrary[Long]
     value <- Arbitrary.arbitrary[String]
-  } yield (key, AuthDataBlock(value.getBytes, DataBlockSignature(key, Seq())))
+  } yield (key, AuthDataBlock(value.getBytes, MerkleProof(key, Seq())))
 
 
   property("set value and get it") {

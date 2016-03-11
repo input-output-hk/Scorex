@@ -12,7 +12,7 @@ import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.consensus.qora.QoraLikeConsensusModule
 import scorex.consensus.qora.api.http.QoraConsensusApiRoute
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree, TreeStorage}
+import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleTree, TreeStorage}
 import scorex.lagonaki.api.http.{DebugApiRoute, PaymentApiRoute, PeersHttpService, ScorexApiRoute}
 import scorex.network._
 import scorex.perma.api.http.PermaConsensusApiRoute

@@ -5,7 +5,7 @@ import java.io.{File, FileOutputStream}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree}
+import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleTree}
 import scorex.perma.settings.PermaConstants
 
 import scala.util.Random

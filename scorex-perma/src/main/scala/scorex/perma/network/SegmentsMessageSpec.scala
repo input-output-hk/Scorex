@@ -1,7 +1,7 @@
 package scorex.perma.network
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
-import scorex.crypto.storage.auth.AuthDataBlock
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.network.message.Message.MessageCode
 import scorex.network.message.MessageSpec
 import scorex.perma.settings.PermaConstants.{DataSegment, DataSegmentIndex}

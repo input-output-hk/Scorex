@@ -4,8 +4,8 @@ import java.io.File
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.crypto.storage.Storage
-import scorex.crypto.storage.auth.{AuthDataBlock, DataBlockSignature}
+import scorex.crypto.ads.Storage
+import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleProof}
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
 import scorex.perma.storage.AuthDataStorage
@@ -35,7 +35,7 @@ class PermaConsensusBlockFieldSpecification extends PropSpec with PropertyChecks
       val hash1 = randomBytes(PermaConsensusBlockField.HashLength)
       val hash2 = randomBytes(PermaConsensusBlockField.HashLength)
 
-      val authDataBlock = AuthDataBlock(blockdata, DataBlockSignature(segmentIndex, Seq(hash1, hash2)))
+      val authDataBlock = AuthDataBlock(blockdata, MerkleProof(segmentIndex, Seq(hash1, hash2)))
       val initialBlock = PermaConsensusBlockField(PermaConsensusBlockData(
         math.abs(diff),
         puz,

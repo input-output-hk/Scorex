@@ -6,8 +6,8 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.hash.FastCryptographicHash
-import scorex.crypto.storage.Storage
-import scorex.crypto.storage.auth.{AuthDataBlock, MerkleTree}
+import scorex.crypto.ads.Storage
+import scorex.crypto.ads.merkle.{AuthDataBlock, MerkleTree}
 import scorex.perma.settings.PermaConstants.DataSegment
 import scorex.perma.settings.{PermaConstants, PermaSettings}
 import scorex.perma.storage.AuthDataStorage

@@ -2,8 +2,8 @@ package scorex.perma.consensus
 
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{JsPath, Reads, Writes}
-import scorex.crypto.singing.SigningFunctions.Signature
-import scorex.crypto.storage.auth.AuthDataBlock
+import scorex.crypto.signatures.SigningFunctions.Signature
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.perma.settings.PermaConstants._
 import scorex.utils.JsonSerialization
 
