@@ -52,7 +52,7 @@ class LagonakiApplication(val settingsFilename: String) extends Application {
           log.info("TrustedDealer node")
           val tree = if (Files.exists(Paths.get(settings.treeDir + MerkleTree.TreeFileName + "0.mapDB"))) {
             log.info("Get existing tree")
-            val levels = 0 // TODO ???
+            val levels = 20 // TODO ???
             val treeStorage = new TreeStorage(settings.treeDir + MerkleTree.TreeFileName, levels)
             new MerkleTree(treeStorage, PermaConstants.n, FastCryptographicHash)
           } else {
