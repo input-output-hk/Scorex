@@ -164,7 +164,7 @@ class PermaConsensusModule(rootHash: Array[Byte], networkControllerOpt: Option[A
       val rc = calculateIndex(publicKey,
         BigInt(1, Hash(puz ++ publicKey ++ proofs(i - 1).signature)).mod(PermaConstants.l).toInt)
 
-      segment.check(rootHash)() && {
+      segment.check(rootHash)(FastCryptographicHash) && {
         val hi = Hash(puz ++ publicKey ++ sigs(i - 1) ++ segment.data)
         EllipticCurveImpl.verify(sigs(i), hi, publicKey)
       } && (ris.length == i || rc == ris(i))

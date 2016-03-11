@@ -88,9 +88,9 @@ class LagonakiApplication(val settingsFilename: String) extends Application {
           require(settings.rootHash sameElements tree.rootHash, "Tree root hash differs from root hash in settings")
           require(tree.byIndex(PermaConstants.n - 1).isDefined)
           require(tree.byIndex(PermaConstants.n).isEmpty)
-          //          val index = PermaConstants.n - 3
-          //          val sig = tree.byIndex(index).get
-          //          require(AuthDataBlock(,sig).check(index, tree.rootHash)(FastCryptographicHash))
+          val index = PermaConstants.n - 3
+          val b = authDataStorage.get(index).get
+          require(b.check(tree.rootHash)(FastCryptographicHash))
 
         }
         val rootHash = settings.rootHash
