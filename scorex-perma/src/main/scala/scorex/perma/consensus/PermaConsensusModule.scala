@@ -1,14 +1,13 @@
 package scorex.perma.consensus
 
 import akka.actor.ActorRef
-import scorex.crypto.ads.Storage
-import scorex.crypto.ads.merkle.AuthDataBlock
-import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.{Block, BlockField}
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
+import scorex.crypto.ads.Storage
+import scorex.crypto.ads.merkle.AuthDataBlock
 import scorex.crypto.hash.CryptographicHash.Digest
-import scorex.crypto.hash.FastCryptographicHash
+import scorex.crypto.hash.{FastCryptographicHash, SecureCryptographicHash}
 import scorex.crypto.signatures.SigningFunctions.{PrivateKey, PublicKey}
 import scorex.network.NetworkController.SendToNetwork
 import scorex.network.SendToRandom
@@ -17,6 +16,7 @@ import scorex.perma.network.GetSegmentsMessageSpec
 import scorex.perma.settings.PermaConstants
 import scorex.perma.settings.PermaConstants._
 import scorex.transaction.TransactionModule
+import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.utils.{NTP, ScorexLogging, randomBytes}
 
 import scala.collection.concurrent.TrieMap
@@ -36,7 +36,7 @@ class PermaConsensusModule(rootHash: Array[Byte], networkControllerOpt: Option[A
   val initialTargetPow: BigInt = log2(InitialTarget)
   val TargetRecalculation = PermaConstants.targetRecalculation
   val AvgDelay = PermaConstants.averageDelay
-  val Hash = FastCryptographicHash
+  val Hash = SecureCryptographicHash
   val SSize = Hash.DigestSize.ensuring(_ == PermaConsensusBlockField.SLength)
 
   val GenesisCreator = new PublicKeyAccount(Array.fill(PermaConsensusBlockField.PublicKeyLength)(0: Byte))
