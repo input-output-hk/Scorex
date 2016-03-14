@@ -7,6 +7,7 @@ import scorex.consensus.{ConsensusModule, LagonakiConsensusModule}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.hash.FastCryptographicHash._
 import scorex.transaction._
+import scorex.transaction.state.AccountMinimalState
 import scorex.utils.NTP
 
 import scala.concurrent.ExecutionContext.Implicits.global

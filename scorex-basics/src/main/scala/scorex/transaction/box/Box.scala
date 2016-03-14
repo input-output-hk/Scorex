@@ -1,6 +1,6 @@
 package scorex.transaction.box
 
-import scorex.transaction.StateElement
+import scorex.transaction.state.StateElement
 
 /**
   * Box is a state element. Basically it is some value locked by some state machine.

@@ -2,6 +2,7 @@ package scorex.transaction
 
 import scorex.block.Block
 import scorex.block.Block.BlockId
+import scorex.transaction.state.LagonakiState
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Success, Try}

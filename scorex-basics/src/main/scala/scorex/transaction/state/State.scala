@@ -1,6 +1,7 @@
-package scorex.transaction
+package scorex.transaction.state
 
 import scorex.block.Block
+import scorex.transaction.Transaction
 import scorex.transaction.account.Account
 
 import scala.util.Try

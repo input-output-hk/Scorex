@@ -10,6 +10,7 @@ import scorex.crypto.hash.FastCryptographicHash
 import scorex.transaction.LagonakiTransaction.ValidationResult
 import scorex.transaction._
 import scorex.transaction.account.Account
+import scorex.transaction.state.LagonakiState
 import scorex.utils.ScorexLogging
 
 import scala.annotation.tailrec

@@ -2,7 +2,7 @@ package scorex.transaction.account
 
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash._
-import scorex.transaction.StateElement
+import scorex.transaction.state.StateElement
 
 
 class Account(val address: String) extends StateElement {

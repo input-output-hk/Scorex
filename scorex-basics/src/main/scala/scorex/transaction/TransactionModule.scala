@@ -2,6 +2,7 @@ package scorex.transaction
 
 import scorex.block.{Block, BlockProcessingModule}
 import scorex.transaction.account.BalanceSheet
+import scorex.transaction.state.AccountMinimalState
 
 trait TransactionModule[TBD] extends BlockProcessingModule[TBD] {
 
