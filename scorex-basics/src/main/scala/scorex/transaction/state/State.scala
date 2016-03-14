@@ -27,5 +27,3 @@ trait MinimalState[ELEM <: StateElement] {
 trait BoxMinimalState extends MinimalState[Account]
 
 trait AccountMinimalState extends MinimalState[Account]
-
-trait AuthenticatedState[ELEM <: StateElement] extends MinimalState[ELEM]
