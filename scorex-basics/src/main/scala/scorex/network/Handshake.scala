@@ -41,10 +41,10 @@ object Handshake extends ScorexLogging {
     val appNameSize = bytes.head
     position += 1
 
-    val an = new String(bytes.slice(position, position + appNameSize))
+    val appName = new String(bytes.slice(position, position + appNameSize))
     position += appNameSize
 
-    val av = ApplicationVersion.parse(bytes.slice(position, position + ApplicationVersion.SerializedVersionLength)).get
+    val appVersion = ApplicationVersion.parse(bytes.slice(position, position + ApplicationVersion.SerializedVersionLength)).get
     position += ApplicationVersion.SerializedVersionLength
 
     val nodeNameSize = bytes.slice(position, position + 1).head
@@ -71,6 +71,6 @@ object Handshake extends ScorexLogging {
 
     val time = Longs.fromByteArray(bytes.slice(position, position + 8))
 
-    Handshake(an, av, nodeName, nonce, isaOpt, time)
+    Handshake(appName, appVersion, nodeName, nonce, isaOpt, time)
   }
 }
