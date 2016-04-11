@@ -1,11 +1,11 @@
 package scorex.api.http
 
 import java.net.InetSocketAddress
+import java.net.HttpURLConnection._
 import javax.ws.rs.Path
 
 import akka.actor.ActorRefFactory
 import akka.pattern.ask
-import com.fasterxml.jackson.annotation.JsonValue
 import com.wordnik.swagger.annotations._
 import play.api.libs.json.{JsString, JsArray, Json}
 import scorex.app.Application
@@ -27,7 +27,7 @@ case class PeersHttpService(override val application: Application)(implicit val 
   @Path("/all")
   @ApiOperation(value = "Peer list", notes = "Peer list", httpMethod = "GET")
   @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Json with peer list or error")
+    new ApiResponse(code = HTTP_OK, message = "Json with peer list or error")
   ))
   def allPeers: Route = path("all") {
     jsonRoute {
@@ -48,7 +48,7 @@ case class PeersHttpService(override val application: Application)(implicit val 
   @Path("/connected")
   @ApiOperation(value = "Connected peers list", notes = "Connected peers list", httpMethod = "GET")
   @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Json with connected peers or error")
+    new ApiResponse(code = HTTP_OK, message = "Json with connected peers or error")
   ))
   def connectedPeers: Route = path("connected") {
     jsonRoute {
@@ -57,7 +57,7 @@ case class PeersHttpService(override val application: Application)(implicit val 
         .map { handshakes =>
           val peerData = Json.arr(handshakes.map { handshake =>
             Json.obj(
-              "declaredAddress" -> handshake.declaredAddress.toString,
+              "declaredAddress" -> handshake.declaredAddress.getOrElse("N/A").toString,
               "peerName" -> handshake.nodeName,
               "peerNonce" -> handshake.nodeNonce
             )
@@ -70,7 +70,7 @@ case class PeersHttpService(override val application: Application)(implicit val 
   @Path("/blacklisted")
   @ApiOperation(value = "Blacklisted peers list", notes = "Connected peers list", httpMethod = "GET")
   @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Json with connected peers or error")
+    new ApiResponse(code = HTTP_OK, message = "Json with connected peers or error")
   ))
   def blacklistedPeers: Route = path("blacklisted") {
     jsonRoute {
