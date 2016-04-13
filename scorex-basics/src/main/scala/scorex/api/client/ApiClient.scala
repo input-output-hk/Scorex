@@ -36,7 +36,7 @@ class ApiClient(settings: Settings) {
       }
 
       val stream = connection.getResponseCode match {
-        case 200 => connection.getInputStream
+        case HttpURLConnection.HTTP_OK => connection.getInputStream
         case _ => connection.getErrorStream
       }
 

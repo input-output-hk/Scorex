@@ -1,7 +1,6 @@
 package scorex.account
 
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.SecureCryptographicHash
 import scorex.crypto.hash.SecureCryptographicHash._
 
 
@@ -28,7 +27,7 @@ object Account {
   val AddressLength = 1 + ChecksumLength + HashLength
 
   /**
-    * Create account from public key. Used in PublicKeyAccount/PrivateKeyAccount.
+    * Create account address from public key. Used in PublicKeyAccount/PrivateKeyAccount.
     */
   def fromPublicKey(publicKey: Array[Byte]): String = {
     val publicKeyHash = hash(publicKey).take(HashLength)
