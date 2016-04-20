@@ -3,7 +3,7 @@ package scorex.transaction
 /**
   * A reason to change a system state
   */
-trait StateChangeReason {
+trait StateChangeReason extends Serializable {
   /**
     * A reason could be serialized into a binary form
     */

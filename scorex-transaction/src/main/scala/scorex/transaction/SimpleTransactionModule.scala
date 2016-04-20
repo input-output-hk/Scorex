@@ -5,10 +5,11 @@ import scorex.app.Application
 import scorex.block.{Block, BlockField}
 import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
+import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
 import scorex.transaction.account.{Account, AccountTransaction, PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.{StoredBlockTree, StoredBlockchain, StoredState}
+import scorex.transaction.state.database.blockchain.{StoredState, StoredBlockTree, StoredBlockchain}
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
@@ -18,7 +19,7 @@ import scala.util.Try
 import shapeless.Typeable._
 
 
-class SimpleTransactionModule(implicit val settings: TransactionSettings, application: Application)
+class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application)
   extends TransactionModule[StoredInBlock] with ScorexLogging {
 
   import SimpleTransactionModule._
@@ -45,11 +46,13 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings, applic
         new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
     }
 
-    override val state = new StoredState(settings.dataDirOpt.map(_ + "/state.mapdb"))
+    override val state = new StoredState(settings.dataDirOpt.map(_ + "/state.dat"))
+
   }
 
   /**
     * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
+    *
     * @param bytes - serialized sequence of transaction
     * @return
     */

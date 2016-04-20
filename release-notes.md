@@ -1,3 +1,28 @@
+**1.2.4**
+
+* New API calls /transactions/info and /peers/connect
+* MVStore is used for state persistence
+* Fixed JSON style in API calls
+* PeersHttpService was renamed to PeersApiRoute
+
+**1.2.3**
+
+* Peer blacklisting implemented
+* Logback configured to rollover log files daily
+* MapDB replaced with MVStore
+
+**1.2.2**
+
+* LagonakiApplication was moved to [Lagonaki](https://github.com/ScorexProject/Lagonaki) project
+* New API call /addresses/seq
+* API call /blocks/seq fixes
+* Disk-based persistence for peers whitelist/blacklist in PeerDatabaseImpl implemented
+
+**1.2.1**
+
+* New API call /blocks/seq
+* CORS optional support(to be allowed in settings, disallowed by default)
+
 **1.2.0**
 ---------
 

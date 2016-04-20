@@ -9,7 +9,7 @@ import akka.util.{ByteString, CompactByteString}
 import com.google.common.primitives.Ints
 import scorex.app.Application
 import scorex.network.peer.PeerManager
-import scorex.network.peer.PeerManager.Handshaked
+import scorex.network.peer.PeerManager.{AddToBlacklist, Handshaked}
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Success}
@@ -50,9 +50,8 @@ case class PeerConnectionHandler(application: Application,
   private def processErrors(stateName: String): Receive = {
     case CommandFailed(w: Write) =>
       log.warn(s"Write failed :$w " + remote + s" in state $stateName")
-      //todo: blacklisting
-      //peerManager.blacklistPeer(remote)
-      //connection ! Close
+//      peerManager ! AddToBlacklist(remote)
+      connection ! Close
 
       connection ! ResumeReading
       connection ! ResumeWriting
@@ -108,13 +107,13 @@ case class PeerConnectionHandler(application: Application,
   def workingCycleLocalInterface: Receive = {
     case msg: message.Message[_] =>
       val bytes = msg.bytes
+      log.info("Send message " + msg.spec + " to " + remote)
       connection ! Write(ByteString(Ints.toByteArray(bytes.length) ++ bytes))
 
     case Blacklist =>
       log.info(s"Going to blacklist " + remote)
-    //todo: real blacklisting
-    //  PeerManager.blacklistPeer(remote)
-    //  connection ! Close
+      peerManager ! AddToBlacklist(remote)
+      connection ! Close
   }
 
   private var chunksBuffer: ByteString = CompactByteString()

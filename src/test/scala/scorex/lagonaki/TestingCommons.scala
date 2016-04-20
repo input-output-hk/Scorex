@@ -1,7 +1,7 @@
 package scorex.lagonaki
 
 import dispatch.{Http, url}
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.{JsValue, JsObject, Json}
 import scorex.lagonaki.server.LagonakiApplication
 import scorex.transaction.TransactionSettings
 import scorex.utils._
@@ -29,10 +29,10 @@ object TestingCommons {
     apps.foreach { a =>
       if (a.wallet.privateKeyAccounts().isEmpty) a.wallet.generateNewAccounts(3)
       untilTimeout(20.seconds, 1.second) {
-        val request = Http(url(peerUrl(a) + "/scorex/status").GET)
+        val request = Http(url(peerUrl(a) + "/consensus/algo").GET)
         val response = Await.result(request, 10.seconds)
         val json = Json.parse(response.getResponseBody).as[JsObject]
-        assert((json \ "block generator status").asOpt[String].isDefined)
+        assert((json \ "consensusAlgo").asOpt[String].isDefined)
       }
     }
     apps
@@ -43,4 +43,9 @@ object TestingCommons {
   def peerUrl(a: LagonakiApplication = application): String =
     "http://" + a.settings.bindAddress + ":" + a.settings.rpcPort
 
+  def getRequest(us: String, peer: String = peerUrl(application)): JsValue = {
+    val request = Http(url(peer + us).GET)
+    val response = Await.result(request, 10.seconds)
+    Json.parse(response.getResponseBody)
+  }
 }

@@ -1,18 +1,26 @@
 package scorex.lagonaki.integration
 
+import akka.pattern.ask
+import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
-import scorex.transaction.account.{AccountTransaction, BalanceSheet, PublicKeyAccount}
+import scorex.account.PublicKeyAccount
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
+import scorex.transaction.BalanceSheet
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
+import scorex.transaction.{BalanceSheet, Transaction}
 import scorex.utils.{ScorexLogging, untilTimeout}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ValidChainGenerationSpecification extends FunSuite with Matchers with BeforeAndAfterAll with ScorexLogging
 with TransactionTestingCommons {
 
   import TestingCommons._
+
+  implicit val timeout = Timeout(1.second)
 
   val peers = applications.tail
   val app = peers.head
@@ -22,7 +30,9 @@ with TransactionTestingCommons {
   def waitGenerationOfBlocks(howMany: Int): Unit = {
     val height = maxHeight()
     untilTimeout(5.minutes, 10.seconds) {
-      peers.foreach(_.blockStorage.history.height() should be >= height + howMany)
+      val heights = peers.map(_.blockStorage.history.height())
+      log.info(s"Current heights are: $heights. Waiting for ${height + howMany}")
+      heights.foreach(_ should be >= height + howMany)
     }
   }
 
@@ -33,12 +43,12 @@ with TransactionTestingCommons {
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe 0
   }
 
-  test("generate 3 blocks and synchronize") {
+  test("generate 10 blocks and synchronize") {
     val genBal = peers.flatMap(a => a.wallet.privateKeyAccounts()).map(app.blockStorage.state.generationBalance(_)).sum
-    genBal should be >= (peers.head.transactionModule.InitialBalance / 2)
+    genBal should be >= (peers.head.transactionModule.InitialBalance / 4)
     genValidTransaction()
 
-    waitGenerationOfBlocks(3)
+    waitGenerationOfBlocks(10)
 
     val last = peers.head.blockStorage.history.lastBlock
     untilTimeout(5.minutes, 10.seconds) {
@@ -58,6 +68,14 @@ with TransactionTestingCommons {
         p.blockStorage.state.included(tx).get should be <= h
       }
     }
+    applications.foreach(_.blockGenerator ! StopGeneration)
+
+    untilTimeout(1.second) {
+      val statuses = Await.result(Future.sequence(applications.map(_.blockGenerator ? GetStatus)), timeout.duration)
+      statuses.foreach(_ shouldBe "syncing")
+    }
+
+    Thread.sleep(10000)
 
     cleanTransactionPool()
 
@@ -65,6 +83,8 @@ with TransactionTestingCommons {
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size
     val tx = genValidTransaction(randomAmnt = false)
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size + 1
+
+    applications.foreach(_.blockGenerator ! StartGeneration)
 
     waitGenerationOfBlocks(2)
 
@@ -79,12 +99,15 @@ with TransactionTestingCommons {
   test("Double spending") {
     cleanTransactionPool()
     val recepient = new PublicKeyAccount(Array.empty)
-    val trans = accounts.flatMap { a =>
-      val senderBalance = state.asInstanceOf[BalanceSheet].balance(a.address)
-      (1 to 2) map (i => transactionModule.createPayment(a, recepient, senderBalance / 2, 1))
+    val (trans, valid) = untilTimeout(5.seconds) {
+      val trans = accounts.flatMap { a =>
+        val senderBalance = state.asInstanceOf[BalanceSheet].balance(a.address)
+        (1 to 2) map (i => transactionModule.createPayment(a, recepient, senderBalance / 2, 1))
+      }
+      val valid = transactionModule.packUnconfirmed()
+      valid.nonEmpty shouldBe true
+      (trans, valid)
     }
-    val valid = transactionModule.packUnconfirmed()
-    valid.nonEmpty shouldBe true
     state.validate(trans).nonEmpty shouldBe true
     valid.size should be < trans.size
 
@@ -96,30 +119,33 @@ with TransactionTestingCommons {
   }
 
   test("Rollback state") {
-    val last = history.lastBlock
-    val st1 = state.hash
-    val height = history.heightOf(last).get
+    def rollback(i: Int = 5) {
 
-    //Wait for nonEmpty block
-    untilTimeout(1.minute, 1.second) {
-      genValidTransaction()
-      peers.foreach(_.blockStorage.history.height() should be > height)
-      history.height() should be > height
-      state.hash should not be st1
-      peers.foreach(_.transactionModule.blockStorage.history.contains(last))
-    }
-    waitGenerationOfBlocks(0)
+      val last = history.lastBlock
+      val st1 = state.hash
+      val height = history.heightOf(last).get
 
-    untilTimeout(10.seconds) {
-      peers.foreach { p =>
-        p.blockGenerator ! StopGeneration
-        p.transactionModule.blockStorage.removeAfter(last.uniqueId)
-        p.history.lastBlock.encodedId shouldBe last.encodedId
+      //Wait for nonEmpty block
+      untilTimeout(1.minute, 1.second) {
+        genValidTransaction()
+        peers.foreach(_.blockStorage.history.height() should be > height)
+        history.height() should be > height
+        state.hash should not be st1
+        peers.foreach(_.transactionModule.blockStorage.history.contains(last))
       }
-    }
-    peers.foreach(_.blockGenerator ! StartGeneration)
+      waitGenerationOfBlocks(0)
 
-    state.hash shouldBe st1
+      if (history.contains(last) || i < 0) {
+        peers.foreach(_.blockGenerator ! StopGeneration)
+        peers.foreach { p =>
+          p.transactionModule.blockStorage.removeAfter(last.uniqueId)
+          p.history.lastBlock.encodedId shouldBe last.encodedId
+        }
+        state.hash shouldBe st1
+        peers.foreach(_.blockGenerator ! StartGeneration)
+      } else rollback(i - 1)
+    }
+    rollback()
   }
 
 }

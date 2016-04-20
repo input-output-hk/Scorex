@@ -16,7 +16,7 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
                                    val amount: Long,
                                    override val fee: Long,
                                    override val timestamp: Long,
-                                   override val signature: Array[Byte]) extends AccountTransaction {
+                                   override val signature: Array[Byte]) extends AccountTransaction  with Serializable {
 
   lazy val deadline = timestamp + 24.hours.toMillis
 

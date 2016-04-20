@@ -141,6 +141,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
               log.info(s"Going to process ${toProcess.size} blocks")
               toProcess.find(bp => !processNewBlock(bp, local = false)).foreach { case failedBlock =>
                 log.warn(s"Can't apply block: ${failedBlock.json}")
+                connectedPeer.handlerRef ! PeerConnectionHandler.Blacklist
                 gotoSyncing()
               }
               if (updBlocks.size > toProcess.size) gotoGettingBlocks(witnesses, updBlocks.drop(toProcess.length))
@@ -190,9 +191,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
   }
 
   private def processNewBlock(block: Block, local: Boolean): Boolean = Try {
-    val st = System.currentTimeMillis()
     if (block.isValid) {
-      val ch = System.currentTimeMillis()
       log.info(s"New block(local: $local): ${block.json}")
 
       if (local) networkControllerRef ! SendToNetwork(Message(BlockMessageSpec, Right(block), None), Broadcast)
@@ -202,9 +201,8 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
       transactionalModule.blockStorage.appendBlock(block) match {
         case Success(_) =>
           block.transactionModule.clearFromUnconfirmed(block.transactionDataField.value)
-          val f = System.currentTimeMillis()
           log.info(
-            s"""Block ${block.encodedId} checked in ${ch - st} and appended in ${f - ch}.
+            s"""Block ${block.encodedId} appended:
             (height, score) = ($oldHeight, $oldScore) vs (${history.height()}, ${history.score()})""")
           true
         case Failure(e) =>

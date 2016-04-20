@@ -13,6 +13,7 @@ import scala.util.Random
 
 /**
   * Must be singleton
+  *
   * @param application - Scorex-based application
   */
 class PeerManager(application: Application) extends Actor with ScorexLogging {
@@ -25,7 +26,8 @@ class PeerManager(application: Application) extends Actor with ScorexLogging {
   private lazy val settings = application.settings
   private lazy val networkController = application.networkController
 
-  private lazy val peerDatabase = new PeerDatabaseImpl(application)
+  //TODO Option[String]
+  private lazy val peerDatabase = new PeerDatabaseImpl(settings, settings.dataDirOpt.map(f => f + "/peers.dat"))
 
   settings.knownPeers.foreach { address =>
     val defaultPeerInfo = PeerInfo(System.currentTimeMillis(), None, None)
@@ -62,39 +64,50 @@ class PeerManager(application: Application) extends Actor with ScorexLogging {
 
     case GetAllPeers =>
       sender() ! peerDatabase.knownPeers(true)
+
+    case GetBlacklistedPeers =>
+      sender() ! peerDatabase.blacklistedPeers()
   }
 
   private def peerCycle: Receive = {
     case Connected(newPeer@ConnectedPeer(remote, _)) =>
-      connectedPeers += newPeer -> None
-      if (connectingPeer.contains(remote)) {
-        log.info(s"Connected to $remote")
-        connectingPeer = None
+      if (peerDatabase.isBlacklisted(newPeer.socketAddress)) {
+        log.info(s"Got incoming connection from blacklisted $remote")
       } else {
-        log.info(s"Got incoming connection from $remote")
+        connectedPeers += newPeer -> None
+        if (connectingPeer.contains(remote)) {
+          log.info(s"Connected to $remote")
+          connectingPeer = None
+        } else {
+          log.info(s"Got incoming connection from $remote")
+        }
       }
 
     case Handshaked(address, handshake) =>
-      val toUpdate = connectedPeers.filter { case (cp, h) =>
-        cp.socketAddress == address || h.map(_.nodeNonce == handshake.nodeNonce).getOrElse(true)
-      }
-
-      if (toUpdate.isEmpty) {
-        log.error("No peer to update")
+      if (peerDatabase.isBlacklisted(address)) {
+        log.info(s"Got handshake from blacklisted $address")
       } else {
-        val newCp = toUpdate
-          .find(t => handshake.declaredAddress.contains(t._1.socketAddress))
-          .getOrElse(toUpdate.head)
-          ._1
+        val toUpdate = connectedPeers.filter { case (cp, h) =>
+          cp.socketAddress == address || h.map(_.nodeNonce == handshake.nodeNonce).getOrElse(true)
+        }
 
-        toUpdate.keys.foreach(connectedPeers.remove)
-
-        //drop connection to self if occurred
-        if (handshake.nodeNonce == application.settings.nodeNonce) {
-          newCp.handlerRef ! PeerConnectionHandler.CloseConnection
+        if (toUpdate.isEmpty) {
+          log.error("No peer to update")
         } else {
-          handshake.declaredAddress.foreach(address => self ! PeerManager.AddOrUpdatePeer(address, None, None))
-          connectedPeers += newCp -> Some(handshake)
+          val newCp = toUpdate
+            .find(t => handshake.declaredAddress.contains(t._1.socketAddress))
+            .getOrElse(toUpdate.head)
+            ._1
+
+          toUpdate.keys.foreach(connectedPeers.remove)
+
+          //drop connection to self if occurred
+          if (handshake.nodeNonce == application.settings.nodeNonce) {
+            newCp.handlerRef ! PeerConnectionHandler.CloseConnection
+          } else {
+            handshake.declaredAddress.foreach(address => self ! PeerManager.AddOrUpdatePeer(address, None, None))
+            connectedPeers += newCp -> Some(handshake)
+          }
         }
       }
 
@@ -115,6 +128,10 @@ class PeerManager(application: Application) extends Actor with ScorexLogging {
           }
         }
       }
+
+    case AddToBlacklist(peer) =>
+      log.info(s"Blacklist peer $peer")
+      peerDatabase.blacklistPeer(peer)
   }: Receive) orElse peerListOperations orElse apiInterface orElse peerCycle
 }
 
@@ -136,9 +153,13 @@ object PeerManager {
 
   case class Disconnected(remote: InetSocketAddress)
 
+  case class AddToBlacklist(remote: InetSocketAddress)
+
   case class FilterPeers(sendingStrategy: SendingStrategy)
 
   case object GetAllPeers
+
+  case object GetBlacklistedPeers
 
   case object GetConnectedPeers
 

@@ -6,6 +6,7 @@ import akka.actor.ActorRefFactory
 import com.wordnik.swagger.annotations._
 import play.api.libs.json.Json
 import scorex.api.http.{ApiRoute, CommonApiFunctions}
+import scorex.app.Application
 import scorex.consensus.nxt.NxtLikeConsensusModule
 import scorex.crypto.encode.Base58
 import scorex.transaction.BlockStorage
@@ -13,9 +14,11 @@ import spray.routing.Route
 
 
 @Api(value = "/consensus", description = "Consensus-related calls")
-class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage: BlockStorage)
-                          (implicit val context: ActorRefFactory)
+class NxtConsensusApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
+
+  private val consensusModule = application.consensusModule.asInstanceOf[NxtLikeConsensusModule]
+  private val blockStorage = application.blockStorage
 
   override val route: Route =
     pathPrefix("consensus") {
@@ -33,7 +36,7 @@ class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage
         withBlock(blockStorage.history, encodedSignature) { block =>
           val gs = consensusModule.consensusBlockData(block).generationSignature
           Json.obj(
-            "generation-signature" -> Base58.encode(gs)
+            "generationSignature" -> Base58.encode(gs)
           )
         }.toString()
       }
@@ -47,7 +50,7 @@ class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage
       jsonRoute {
         val lastBlock = blockStorage.history.lastBlock
         val gs = consensusModule.consensusBlockData(lastBlock).generationSignature
-        Json.obj("generation-signature" -> Base58.encode(gs)).toString()
+        Json.obj("generationSignature" -> Base58.encode(gs)).toString()
       }
     }
   }
@@ -62,7 +65,7 @@ class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage
       jsonRoute {
         withBlock(blockStorage.history, encodedSignature) { block =>
           Json.obj(
-            "base-target" -> consensusModule.consensusBlockData(block).baseTarget
+            "baseTarget" -> consensusModule.consensusBlockData(block).baseTarget
           )
         }.toString
       }
@@ -76,7 +79,7 @@ class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage
       jsonRoute {
         val lastBlock = blockStorage.history.lastBlock
         val bt = consensusModule.consensusBlockData(lastBlock).baseTarget
-        Json.obj("base-target" -> bt).toString()
+        Json.obj("baseTarget" -> bt).toString()
       }
     }
   }
@@ -86,7 +89,7 @@ class NxtConsensusApiRoute(consensusModule: NxtLikeConsensusModule, blockStorage
   def algo: Route = {
     path("algo") {
       jsonRoute {
-        Json.obj("consensus-algo" -> "nxt").toString()
+        Json.obj("consensusAlgo" -> "nxt").toString()
       }
     }
   }

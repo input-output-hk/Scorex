@@ -14,14 +14,12 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Try}
 
 
-class NxtLikeConsensusModule
+class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
   extends LagonakiConsensusModule[NxtLikeConsensusBlockData] with ScorexLogging {
 
   import NxtLikeConsensusModule._
 
   implicit val consensusModule: ConsensusModule[NxtLikeConsensusBlockData] = this
-
-  val AvgDelay = 5.seconds.toSeconds
 
   val version = 1: Byte
 
@@ -103,13 +101,13 @@ class NxtLikeConsensusModule
   private def calcBaseTarget(lastBlockData: NxtLikeConsensusBlockData,
                              lastBlockTimestamp: Long,
                              currentTime: Long): Long = {
-    val eta = (currentTime - lastBlockTimestamp) / 1000 //in seconds
+    val eta = currentTime - lastBlockTimestamp
     val prevBt = BigInt(lastBlockData.baseTarget)
     val t0 = bounded(prevBt * eta / AvgDelay, prevBt / 2, prevBt * 2)
     bounded(t0, 1, Long.MaxValue).toLong
   }
 
-  private def calcTarget(lastBlockData: NxtLikeConsensusBlockData,
+  protected def calcTarget(lastBlockData: NxtLikeConsensusBlockData,
                          lastBlockTimestamp: Long,
                          generator: PublicKeyAccount)(implicit transactionModule: TransactionModule[_]): BigInt = {
     val eta = (NTP.correctedTime() - lastBlockTimestamp) / 1000 //in seconds
