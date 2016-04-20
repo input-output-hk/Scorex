@@ -1,7 +1,6 @@
 package scorex.transaction.state.database.blockchain
 
 import org.h2.mvstore.{MVMap, MVStore}
-import scorex.account.Account
 import scorex.transaction.account.Account
 import scorex.block.Block
 import scorex.block.Block.BlockId

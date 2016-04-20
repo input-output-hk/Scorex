@@ -3,12 +3,10 @@ package scorex.lagonaki.integration
 import akka.pattern.ask
 import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
-import scorex.account.PublicKeyAccount
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.BalanceSheet
+import scorex.transaction.account.{BalanceSheet, PublicKeyAccount, AccountTransaction}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.{BalanceSheet, Transaction}
 import scorex.utils.{ScorexLogging, untilTimeout}
 
 import scala.concurrent.ExecutionContext.Implicits.global

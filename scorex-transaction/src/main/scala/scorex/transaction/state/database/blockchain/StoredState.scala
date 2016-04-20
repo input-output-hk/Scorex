@@ -24,7 +24,6 @@ import scala.util.Try
   */
 class StoredState(fileNameOpt: Option[String]) extends LagonakiState with ScorexLogging {
 
-
   val HeightKey = "height"
   val DataKey = "dataset"
   val LastStates = "lastStates"
@@ -35,6 +34,8 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     case None => new MVStore.Builder().open()
   }
   db.rollback()
+
+  override lazy val version: Int = stateHeight
 
   private def accountChanges(key: Address): MVMap[Int, Row] = db.openMap(key.toString)
 
@@ -156,12 +157,9 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     }
   }
 
-  def included(transaction: Transaction,
-               heightOpt: Option[Int] = None): Option[Int] = transaction match {
-    case tx: LagonakiTransaction =>
-      Option(includedTx.get(tx.signature)).filter(_ < heightOpt.getOrElse(Int.MaxValue))
-    case _ => throw new Error("wrong kind of transaction")
-  }
+  override def included(proof: Array[Byte],
+                        heightOpt: Option[Int]): Option[Int] =
+    Option(includedTx.get(proof)).filter(_ < heightOpt.getOrElse(Int.MaxValue))
 
   //return seq of valid transactions
   @tailrec

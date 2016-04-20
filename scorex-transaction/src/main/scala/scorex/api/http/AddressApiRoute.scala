@@ -7,16 +7,11 @@ import akka.actor.ActorRefFactory
 import com.wordnik.swagger.annotations._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import scorex.account.{Account, PublicKeyAccount}
 import scorex.app.Application
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
 import scorex.transaction.account.{PublicKeyAccount, Account}
-import scorex.transaction.state.LagonakiState
-import scorex.wallet.Wallet
-import spray.http.MediaTypes._
 import spray.routing.Route
-
 import scala.util.{Failure, Success, Try}
 
 

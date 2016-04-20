@@ -1,7 +1,7 @@
 package scorex.transaction
 
 import org.scalacheck.{Arbitrary, Gen}
-import scorex.account.{Account, PrivateKeyAccount}
+import scorex.transaction.account.{Account, PrivateKeyAccount}
 import scorex.utils._
 
 trait TransactionGen {

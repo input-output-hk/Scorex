@@ -7,7 +7,8 @@ import com.wordnik.swagger.annotations._
 import play.api.libs.json.Json
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.LagonakiState
+import scorex.transaction.state.LagonakiState
+
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.blockchain.StoredBlockchain
 import spray.routing.Route
@@ -73,7 +74,7 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
               case Some(h) =>
                 Try {
                   val block = application.blockStorage.history.asInstanceOf[StoredBlockchain].blockAt(h).get
-                  val tx = block.transactions.filter(_.signature sameElements sig).head
+                  val tx = block.transactions.filter(_.serializedProof sameElements sig).head
                   tx.json
                 }.getOrElse(Json.obj("status" -> "error", "details" -> "Internal error")).toString
               case None => Json.obj("status" -> "error", "details" -> "Transaction is not in blockchain").toString()

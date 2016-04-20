@@ -1,11 +1,11 @@
 package scorex.lagonaki.integration
 
 import org.scalatest._
-import scorex.account.Account
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
+import scorex.transaction.account.{BalanceSheet, Account}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.state.AccState
-import scorex.transaction.{BalanceSheet, FeesStateChange}
+import scorex.transaction.FeesStateChange
 import scorex.utils.ScorexLogging
 
 import scala.util.Random

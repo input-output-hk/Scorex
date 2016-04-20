@@ -4,7 +4,6 @@ import java.io.File
 
 import com.google.common.primitives.{Bytes, Ints}
 import org.h2.mvstore.{MVMap, MVStore}
-import scorex.account.PrivateKeyAccount
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash
 import scorex.transaction.account.PrivateKeyAccount
