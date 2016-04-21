@@ -5,7 +5,7 @@ import scorex.crypto.hash.SecureCryptographicHash._
 import scorex.transaction.state.StateElement
 
 
-class Account(val address: String) extends StateElement {
+class Account(val address: String) extends StateElement with Serializable {
 
   override lazy val bytes = Base58.decode(address).get
 
