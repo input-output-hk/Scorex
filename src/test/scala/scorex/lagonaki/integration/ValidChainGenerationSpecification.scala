@@ -3,9 +3,10 @@ package scorex.lagonaki.integration
 import akka.pattern.ask
 import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
+import scorex.block.Block
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.account.{BalanceSheet, PublicKeyAccount, AccountTransaction}
+import scorex.transaction.account.{AccountTransaction, BalanceSheet, PublicKeyAccount}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.utils.{ScorexLogging, untilTimeout}
 
@@ -42,7 +43,11 @@ with TransactionTestingCommons {
   }
 
   test("generate 10 blocks and synchronize") {
-    val genBal = peers.flatMap(a => a.wallet.privateKeyAccounts()).map(app.blockStorage.state.generationBalance(_)).sum
+    val genBal =
+      peers
+        .flatMap(a => a.wallet.privateKeyAccounts())
+        .map(app.blockStorage.state.generationBalance(_))
+        .sum
     genBal should be >= (peers.head.transactionModule.InitialBalance / 4)
     genValidTransaction()
 
@@ -53,6 +58,23 @@ with TransactionTestingCommons {
       peers.head.blockStorage.history.contains(last) shouldBe true
     }
   }
+
+  test("Generate block with plenty of transactions") {
+    stopGeneration()
+    (0 to UnconfirmedTransactionsDatabaseImpl.SizeLimit) foreach (i => genValidTransaction())
+
+    val blocksFuture = application.consensusModule.generateNextBlocks(Seq(accounts.head))(application.transactionModule)
+    val blocks: Seq[Block] = Await.result(blocksFuture, 10.seconds)
+    blocks.nonEmpty shouldBe true
+    val block = blocks.head
+
+    block.isValid shouldBe true
+    block.transactions.nonEmpty shouldBe true
+
+    startGeneration()
+
+  }
+
 
   test("Don't include same transactions twice") {
     val last = history.lastBlock
@@ -95,6 +117,7 @@ with TransactionTestingCommons {
   }
 
   test("Double spending") {
+    stopGeneration()
     cleanTransactionPool()
     val recepient = new PublicKeyAccount(Array.empty)
     val (trans, valid) = untilTimeout(5.seconds) {
@@ -114,6 +137,7 @@ with TransactionTestingCommons {
     accounts.foreach(a => state.asInstanceOf[BalanceSheet].balance(a.address) should be >= 0L)
     trans.exists(tx => state.included(tx).isDefined) shouldBe true // Some of transactions should be included in state
     trans.forall(tx => state.included(tx).isDefined) shouldBe false // But some should not
+    startGeneration()
   }
 
   test("Rollback state") {
@@ -134,16 +158,23 @@ with TransactionTestingCommons {
       waitGenerationOfBlocks(0)
 
       if (history.contains(last) || i < 0) {
-        peers.foreach(_.blockGenerator ! StopGeneration)
+        stopGeneration()
         peers.foreach { p =>
           p.transactionModule.blockStorage.removeAfter(last.uniqueId)
           p.history.lastBlock.encodedId shouldBe last.encodedId
         }
         state.hash shouldBe st1
-        peers.foreach(_.blockGenerator ! StartGeneration)
+        startGeneration()
       } else rollback(i - 1)
     }
     rollback()
   }
 
+  def startGeneration(): Unit = {
+    peers.foreach(_.blockGenerator ! StartGeneration)
+  }
+
+  def stopGeneration(): Unit = {
+    peers.foreach(_.blockGenerator ! StopGeneration)
+  }
 }
