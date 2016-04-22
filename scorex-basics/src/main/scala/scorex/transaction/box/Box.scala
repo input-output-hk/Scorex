@@ -12,11 +12,13 @@ trait Box[L <: Lock] extends StateElement {
 
   val lock: L
 
-  val ol: HeightOpenLock
+  //garbage-collecting lock
+  val gcLock: HeightOpenLock
 
   val bytes: Array[Byte]
 
-  def minFee(currentHeight: Int): Int = (bytes.length - SMin + 1) * (ol.height - currentHeight)
+  def minFee(currentHeight: Int): Int =
+    (bytes.length - SMin + 1) * (gcLock.height - currentHeight)
 
   val memo: Array[Byte]
   val value: Long
