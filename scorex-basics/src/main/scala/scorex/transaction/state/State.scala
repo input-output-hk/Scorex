@@ -30,5 +30,5 @@ trait AccountMinimalState extends MinimalState[Account] {
   def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]
 
   def included(transaction: Transaction, heightOpt: Option[Int] = None): Option[Int] =
-    included(transaction.serializedProof, heightOpt)
+    included(transaction.proof.bytes, heightOpt)
 }

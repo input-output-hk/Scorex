@@ -61,7 +61,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
       val change = Row(ch._2._1, ch._2._2, Option(lastStates.get(ch._1)).getOrElse(0))
       accountChanges(ch._1).put(h, change)
       lastStates.put(ch._1, h)
-      ch._2._2.foreach(t => includedTx.put(t.serializedProof, h))
+      ch._2._2.foreach(t => includedTx.put(t.proof.bytes, h))
     }
     db.commit()
   }
@@ -72,7 +72,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
       if (currentHeight > rollbackTo) {
         val dataMap = accountChanges(key)
         val changes = dataMap.remove(currentHeight)
-        changes.reason.foreach(t => includedTx.remove(t.serializedProof))
+        changes.reason.foreach(t => includedTx.remove(t.proof.bytes))
         val prevHeight = changes.lastRowHeight
         lastStates.put(key, prevHeight)
         deleteNewer(key)
@@ -178,7 +178,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
         prevSum < 0
       }
     }
-    val validTransactions = txs.filter(t => !toRemove.exists(tr => tr.signature sameElements t.serializedProof))
+    val validTransactions = txs.filter(t => !toRemove.exists(tr => tr.signature sameElements t.proof.bytes))
     if (validTransactions.size == txs.size) txs
     else if (validTransactions.nonEmpty) validate(validTransactions, heightOpt)
     else validTransactions
