@@ -1,10 +1,11 @@
 package scorex.transaction.box
 
 import scorex.crypto.hash.SecureCryptographicHash
+import scorex.transaction.Proof
 
-sealed trait Unlocker[L <: Lock]
+trait BoxProof[L <: Lock] extends Proof
 
-sealed trait SigmaUnlocker[SL <: SigmaLock] {
+trait SigmaProof[SL <: SigmaLock] extends BoxProof[SL] {
   // new boxes common hash
   val newBoxesHash: Array[Byte]
 

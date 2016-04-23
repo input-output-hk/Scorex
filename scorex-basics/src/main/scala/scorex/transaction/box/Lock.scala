@@ -6,7 +6,7 @@ sealed trait Lock {
 }
 
 sealed trait SigmaLock extends Lock {
-  val a: Array[Byte]
+  val x: Array[Byte]
 }
 
 case class HeightOpenLock(height: Int)
