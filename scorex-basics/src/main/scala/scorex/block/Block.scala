@@ -67,10 +67,10 @@ trait Block extends ScorexLogging {
 
   lazy val bytes = {
     val txBytesSize = transactionDataField.bytes.length
-    val txBytes = Bytes.ensureCapacity(Ints.toByteArray(txBytesSize), 4, 0) ++ transactionDataField.bytes
+    val txBytes = Ints.toByteArray(txBytesSize) ++ transactionDataField.bytes
 
     val cBytesSize = consensusDataField.bytes.length
-    val cBytes = Bytes.ensureCapacity(Ints.toByteArray(cBytesSize), 4, 0) ++ consensusDataField.bytes
+    val cBytes = Ints.toByteArray(cBytesSize) ++ consensusDataField.bytes
 
     versionField.bytes ++
       timestampField.bytes ++
