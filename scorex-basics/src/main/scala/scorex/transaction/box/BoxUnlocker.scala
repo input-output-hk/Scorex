@@ -1,6 +1,6 @@
 package scorex.transaction.box
 
-trait BoxModifier[L <: Lock] {
+trait BoxUnlocker[L <: Lock] {
   val box: Box[L]
   val key: BoxProof[L]
 }

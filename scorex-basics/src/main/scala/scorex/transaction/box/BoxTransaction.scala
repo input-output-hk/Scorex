@@ -8,7 +8,7 @@ import scorex.transaction.Transaction
   */
 
 trait BoxTransaction extends Transaction {
-  val modifiers: Seq[BoxModifier[_]]
+  val modifiers: Seq[BoxUnlocker[_]]
 
   val newBoxes: Seq[Box[_]]
 
