@@ -15,7 +15,6 @@ trait Box[L <: Lock] extends StateElement {
   val SMin = 0 //todo: min box size
   val fee: Int
 
-  val memo: Array[Byte]
   val value: Long
 }
 
@@ -27,4 +26,6 @@ trait ErgakiBox[SL <: SigmaLock] extends SigmaBox[SL] {
   val gcLock: HeightOpenLock
   def minFee(currentHeight: Int): Int =
     (bytes.length - SMin + 1) * (gcLock.height - currentHeight)
+
+  val memo: Array[Byte]
 }
