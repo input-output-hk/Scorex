@@ -3,6 +3,7 @@ package scorex.transaction.state
 import scorex.block.Block
 import scorex.transaction.Transaction
 import scorex.transaction.account.Account
+import scorex.transaction.box.Box
 
 import scala.util.Try
 
@@ -24,7 +25,10 @@ trait MinimalState[ELEM <: StateElement] {
   private[transaction] def rollbackTo(height: Int): MinimalState[ELEM]
 }
 
-trait BoxMinimalState extends MinimalState[Account]
+trait BoxMinimalState extends MinimalState[Box]
+
+//todo: implement
+trait MerkelizedBoxMinimalState extends BoxMinimalState
 
 trait AccountMinimalState extends MinimalState[Account] {
   def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]
