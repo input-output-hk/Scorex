@@ -18,7 +18,7 @@ case class TransactionsBlockField(override val value: Seq[AccountTransaction])
     val txCount = value.size.ensuring(_ <= MaxTransactionsPerBlock).toByte
     value.foldLeft(Array(txCount)) { case (bs, tx) =>
       val txBytes = tx.bytes
-      bs ++ Bytes.ensureCapacity(Ints.toByteArray(txBytes.length), 4, 0) ++ txBytes
+      bs ++ Ints.toByteArray(txBytes.length) ++ txBytes
     }
   }
 }
