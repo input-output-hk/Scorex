@@ -8,5 +8,6 @@ sealed trait SigmaUnlocker[SL <: SigmaLock] {
   // new boxes common hash
   val newBoxesHash: Array[Byte]
 
-  def e(a: Array[Byte]): Array[Byte] = SecureCryptographicHash.hash(newBoxesHash ++ a)
+  lazy val a = newBoxesHash
+  lazy val e = SecureCryptographicHash.hash(a)
 }
