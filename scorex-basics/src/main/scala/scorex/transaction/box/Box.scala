@@ -8,18 +8,23 @@ import scorex.transaction.state.StateElement
 trait Box[L <: Lock] extends StateElement {
   require(value > 0)
 
-  val SMin = 0 //todo: min box size
-
   val lock: L
-
-  //garbage-collecting lock
-  val gcLock: HeightOpenLock
 
   val bytes: Array[Byte]
 
-  def minFee(currentHeight: Int): Int =
-    (bytes.length - SMin + 1) * (gcLock.height - currentHeight)
+  val SMin = 0 //todo: min box size
+  val fee: Int
 
   val memo: Array[Byte]
   val value: Long
+}
+
+//todo: move SigmaBox/ErgakiBox to the SigmaCoin module
+trait SigmaBox[SL <: SigmaLock] extends Box[SL]
+
+trait ErgakiBox[SL <: SigmaLock] extends SigmaBox[SL] {
+  //garbage-collecting lock
+  val gcLock: HeightOpenLock
+  def minFee(currentHeight: Int): Int =
+    (bytes.length - SMin + 1) * (gcLock.height - currentHeight)
 }
