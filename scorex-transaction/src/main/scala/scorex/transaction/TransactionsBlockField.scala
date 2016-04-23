@@ -1,6 +1,6 @@
 package scorex.transaction
 
-import com.google.common.primitives.{Ints, Bytes}
+import com.google.common.primitives.Ints
 import play.api.libs.json.{Json, JsObject}
 import scorex.block.BlockField
 import scorex.transaction.account.AccountTransaction
