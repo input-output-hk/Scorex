@@ -1,6 +1,7 @@
 package scorex.transaction.state
 
 import scorex.block.Block
+import scorex.crypto.hash.CryptographicHash
 import scorex.transaction.Transaction
 import scorex.transaction.account.Account
 import scorex.transaction.box.{Lock, Box}
@@ -30,7 +31,9 @@ trait BoxMinimalState[L <: Lock] extends MinimalState[Box[L]]
 
 //todo: implement
 //we assume only boxed state could be Merkelized
-trait MerkelizedBoxMinimalState[L <: Lock] extends BoxMinimalState[L]
+trait MerkelizedBoxMinimalState[L <: Lock, HashFunction <: CryptographicHash] extends BoxMinimalState[L] {
+  val hashFunction: HashFunction
+}
 
 trait AccountMinimalState extends MinimalState[Account] {
   def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]
