@@ -149,7 +149,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   }
 
   override def isValid(block: Block): Boolean =
-    blockStorage.state.isValid(block.transactions, blockStorage.history.heightOf(block))
+    blockStorage.state.areValid(block.transactions, blockStorage.history.heightOf(block))
 }
 
 object SimpleTransactionModule {

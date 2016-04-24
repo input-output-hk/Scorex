@@ -49,7 +49,7 @@ class StoredStateSpecification extends FunSuite with Matchers with BeforeAndAfte
     val senderBalance = state.asInstanceOf[BalanceSheet].balance(acc.address)
     val doubleSpending = (1 to 2).map(i => transactionModule.createPayment(acc, recepient, senderBalance / 2, 1))
     doubleSpending.foreach(t => state.isValid(t) shouldBe true)
-    state.isValid(doubleSpending) shouldBe false
+    state.areValid(doubleSpending) shouldBe false
     state.validate(doubleSpending).size shouldBe 1
   }
 
