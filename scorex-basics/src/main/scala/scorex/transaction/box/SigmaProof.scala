@@ -1,7 +1,7 @@
 package scorex.transaction.box
 
 import scorex.crypto.hash.SecureCryptographicHash
-import scorex.transaction.Proof
+import scorex.transaction.proof.Proof
 
 trait BoxProof[L <: Lock] extends Proof
 

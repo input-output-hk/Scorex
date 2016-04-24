@@ -1,5 +1,7 @@
 package scorex.transaction
 
+import scorex.transaction.proof.Proof
+
 /**
   * A reason to change a system state
   */
