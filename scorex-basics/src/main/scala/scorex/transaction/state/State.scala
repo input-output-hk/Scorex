@@ -3,7 +3,7 @@ package scorex.transaction.state
 import scorex.block.Block
 import scorex.transaction.Transaction
 import scorex.transaction.account.Account
-import scorex.transaction.box.Box
+import scorex.transaction.box.{Lock, Box}
 
 import scala.util.Try
 
@@ -18,17 +18,19 @@ trait MinimalState[ELEM <: StateElement] {
 
   def isValid(tx: Transaction): Boolean = isValid(Seq(tx))
 
-  def isValid(txs: Seq[Transaction], height: Option[Int] = None): Boolean = validate(txs, height).size == txs.size
+  def isValid(txs: Seq[Transaction], height: Option[Int] = None): Boolean
+  = validate(txs, height).size == txs.size
 
   def validate(txs: Seq[Transaction], height: Option[Int] = None): Seq[Transaction]
 
-  private[transaction] def rollbackTo(height: Int): MinimalState[ELEM]
+  private[transaction] def rollbackTo(height: Int): Try[MinimalState[ELEM]]
 }
 
-trait BoxMinimalState extends MinimalState[Box]
+trait BoxMinimalState[L <: Lock] extends MinimalState[Box[L]]
 
 //todo: implement
-trait MerkelizedBoxMinimalState extends BoxMinimalState
+//we assume only boxed state could be Merkelized
+trait MerkelizedBoxMinimalState[L <: Lock] extends BoxMinimalState[L]
 
 trait AccountMinimalState extends MinimalState[Account] {
   def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]

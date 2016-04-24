@@ -66,25 +66,28 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     db.commit()
   }
 
-  override def rollbackTo(rollbackTo: Int): StoredState = synchronized {
-    def deleteNewer(key: Address): Unit = {
-      val currentHeight = lastStates.get(key)
-      if (currentHeight > rollbackTo) {
-        val dataMap = accountChanges(key)
-        val changes = dataMap.remove(currentHeight)
-        changes.reason.foreach(t => includedTx.remove(t.proof.bytes))
-        val prevHeight = changes.lastRowHeight
-        lastStates.put(key, prevHeight)
+  override def rollbackTo(rollbackTo: Int): Try[StoredState] = Try {
+    synchronized {
+      def deleteNewer(key: Address): Unit = {
+        val currentHeight = lastStates.get(key)
+        if (currentHeight > rollbackTo) {
+          val dataMap = accountChanges(key)
+          val changes = dataMap.remove(currentHeight)
+          changes.reason.foreach(t => includedTx.remove(t.proof.bytes))
+          val prevHeight = changes.lastRowHeight
+          lastStates.put(key, prevHeight)
+          deleteNewer(key)
+        }
+      }
+      lastStates.keySet().foreach { key =>
         deleteNewer(key)
       }
+      setStateHeight(rollbackTo)
+      db.commit()
+      this
     }
-    lastStates.keySet().foreach { key =>
-      deleteNewer(key)
-    }
-    setStateHeight(rollbackTo)
-    db.commit()
-    this
   }
+
 
   override def processBlock(block: Block): Try[StoredState] = Try {
     val trans = block.transactions
