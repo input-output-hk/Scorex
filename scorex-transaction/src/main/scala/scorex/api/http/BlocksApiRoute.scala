@@ -5,10 +5,9 @@ import javax.ws.rs.Path
 import akka.actor.ActorRefFactory
 import com.wordnik.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
-import scorex.account.Account
 import scorex.app.Application
-import scorex.transaction.{BlockChain, History}
-import scorex.wallet.Wallet
+import scorex.transaction.BlockChain
+import scorex.transaction.account.Account
 import spray.routing.Route
 
 
