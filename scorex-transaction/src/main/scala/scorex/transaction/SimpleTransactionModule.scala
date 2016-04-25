@@ -51,11 +51,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   }
 
   /**
-    * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
-    *
-    * @param bytes - serialized sequence of transaction
-    * @return
-    */
+   * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
+   *
+   * @param bytes - serialized sequence of transaction
+   * @return
+   */
   override def parseBlockData(bytes: Array[Byte]): Try[TransactionsBlockField] = Try {
     bytes.isEmpty match {
       case true => TransactionsBlockField(Seq())
@@ -80,13 +80,9 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
-    blockStorage.state
-      .validate(UnconfirmedTransactionsDatabaseImpl.all())
-      .sortBy(-_.fee)
-      .take(MaxTransactionsPerBlock)
+    blockStorage.state.validate(UnconfirmedTransactionsDatabaseImpl.all().sortBy(-_.fee).take(MaxTransactionsPerBlock))
       .cast[StoredInBlock]
       .getOrElse(Seq())
-
 
   //todo: check: clear unconfirmed txs on receiving a block
   override def clearFromUnconfirmed(data: StoredInBlock): Unit = {
@@ -99,6 +95,9 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     UnconfirmedTransactionsDatabaseImpl.all().foreach { tx =>
       if ((lastBlockTs - tx.timestamp).seconds > MaxTimeForUnconfirmed) UnconfirmedTransactionsDatabaseImpl.remove(tx)
     }
+
+    val txs = UnconfirmedTransactionsDatabaseImpl.all()
+    txs.diff(blockStorage.state.validate(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
   }
 
   override def onNewOffchainTransaction(transaction: Transaction): Unit = transaction match {

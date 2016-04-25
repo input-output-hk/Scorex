@@ -4,9 +4,9 @@ import akka.pattern.ask
 import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import scorex.block.Block
-import scorex.consensus.mining.BlockGeneratorController._
+import scorex.consensus.mining.BlockGeneratorController.{StartGeneration, GetStatus, StopGeneration}
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.account.{AccountTransaction, BalanceSheet, PublicKeyAccount}
+import scorex.transaction.account.{PublicKeyAccount, BalanceSheet, AccountTransaction}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.utils.{ScorexLogging, untilTimeout}
 
