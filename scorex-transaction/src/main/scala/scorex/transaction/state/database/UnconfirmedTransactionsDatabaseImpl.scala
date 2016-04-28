@@ -1,7 +1,6 @@
 package scorex.transaction.state.database
 
 import com.google.common.primitives.Longs
-import scorex.transaction.Transaction
 import scorex.transaction.account.AccountTransaction
 import scorex.utils.ScorexLogging
 

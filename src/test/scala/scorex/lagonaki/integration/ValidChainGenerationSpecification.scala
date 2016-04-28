@@ -3,17 +3,15 @@ package scorex.lagonaki.integration
 import akka.pattern.ask
 import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
-import scorex.account.PublicKeyAccount
 import scorex.block.Block
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
+import scorex.transaction.account.{AccountTransaction, PublicKeyAccount, BalanceSheet}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.{BalanceSheet, SimpleTransactionModule}
 import scorex.utils.{ScorexLogging, untilTimeout}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 
 class ValidChainGenerationSpecification extends FunSuite with Matchers with BeforeAndAfterAll with ScorexLogging
 with TransactionTestingCommons {
@@ -93,7 +91,7 @@ with TransactionTestingCommons {
     stopGeneration()
     cleanTransactionPool()
 
-    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx))
+    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx.asInstanceOf[AccountTransaction]))
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size
     val tx = genValidTransaction(randomAmnt = false)
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size + 1

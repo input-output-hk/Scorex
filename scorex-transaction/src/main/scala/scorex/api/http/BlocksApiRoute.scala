@@ -6,9 +6,9 @@ import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
-import scorex.account.Account
 import scorex.app.Application
 import scorex.transaction.BlockChain
+import scorex.transaction.account.Account
 
 @Path("/blocks")
 @Api(value = "/blocks", description = "Info about blockchain & individual blocks within it")

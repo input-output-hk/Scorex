@@ -13,10 +13,11 @@ import scorex.transaction.state.database.blockchain.{StoredState, StoredBlockTre
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
+import shapeless.syntax.typeable
 
 import scala.concurrent.duration._
 import scala.util.Try
-import shapeless.Typeable._
+import typeable._
 
 
 class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application)

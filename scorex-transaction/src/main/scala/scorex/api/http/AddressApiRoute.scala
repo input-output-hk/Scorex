@@ -7,10 +7,10 @@ import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json._
-import scorex.account.{Account, PublicKeyAccount}
 import scorex.app.Application
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
+import scorex.transaction.account.{PublicKeyAccount, Account}
 
 import scala.util.{Failure, Success, Try}
 
