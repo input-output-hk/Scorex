@@ -3,11 +3,12 @@ package scorex.lagonaki.integration
 import akka.pattern.ask
 import akka.util.Timeout
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
+import scorex.account.PublicKeyAccount
 import scorex.block.Block
-import scorex.consensus.mining.BlockGeneratorController.{StartGeneration, GetStatus, StopGeneration}
+import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.account.{PublicKeyAccount, BalanceSheet, AccountTransaction}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
+import scorex.transaction.{BalanceSheet, SimpleTransactionModule}
 import scorex.utils.{ScorexLogging, untilTimeout}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -37,17 +38,13 @@ with TransactionTestingCommons {
 
   def maxHeight(): Int = peers.map(_.blockStorage.history.height()).max
 
-  def cleanTransactionPool(): Unit = {
+  def cleanTransactionPool(): Unit = untilTimeout(1.second) {
     UnconfirmedTransactionsDatabaseImpl.all().foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe 0
   }
 
   test("generate 10 blocks and synchronize") {
-    val genBal =
-      peers
-        .flatMap(a => a.wallet.privateKeyAccounts())
-        .map(app.blockStorage.state.generationBalance(_))
-        .sum
+    val genBal = peers.flatMap(a => a.wallet.privateKeyAccounts()).map(app.blockStorage.state.generationBalance(_)).sum
     genBal should be >= (peers.head.transactionModule.InitialBalance / 4)
     genValidTransaction()
 
@@ -60,13 +57,17 @@ with TransactionTestingCommons {
   }
 
   test("Generate block with plenty of transactions") {
-    stopGeneration()
-    (0 to UnconfirmedTransactionsDatabaseImpl.SizeLimit) foreach (i => genValidTransaction())
+    val block = untilTimeout(1.minute) {
+      stopGeneration()
+      if (transactionModule.packUnconfirmed().size < UnconfirmedTransactionsDatabaseImpl.SizeLimit) {
+        (0 to UnconfirmedTransactionsDatabaseImpl.SizeLimit) foreach (i => genValidTransaction())
 
-    val blocksFuture = application.consensusModule.generateNextBlocks(Seq(accounts.head))(application.transactionModule)
-    val blocks: Seq[Block] = Await.result(blocksFuture, 10.seconds)
-    blocks.nonEmpty shouldBe true
-    val block = blocks.head
+      }
+      val blocksFuture = application.consensusModule.generateNextBlocks(Seq(accounts.head))(transactionModule)
+      val blocks: Seq[Block] = Await.result(blocksFuture, 10.seconds)
+      blocks.nonEmpty shouldBe true
+      blocks.head
+    }
 
     block.isValid shouldBe true
     block.transactions.nonEmpty shouldBe true
@@ -88,18 +89,11 @@ with TransactionTestingCommons {
         p.blockStorage.state.included(tx).get should be <= h
       }
     }
-    applications.foreach(_.blockGenerator ! StopGeneration)
 
-    untilTimeout(1.second) {
-      val statuses = Await.result(Future.sequence(applications.map(_.blockGenerator ? GetStatus)), timeout.duration)
-      statuses.foreach(_ shouldBe "syncing")
-    }
-
-    Thread.sleep(10000)
-
+    stopGeneration()
     cleanTransactionPool()
 
-    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx.asInstanceOf[AccountTransaction]))
+    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx))
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size
     val tx = genValidTransaction(randomAmnt = false)
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size + 1
@@ -117,10 +111,10 @@ with TransactionTestingCommons {
   }
 
   test("Double spending") {
-    stopGeneration()
-    cleanTransactionPool()
     val recepient = new PublicKeyAccount(Array.empty)
     val (trans, valid) = untilTimeout(5.seconds) {
+      cleanTransactionPool()
+      stopGeneration()
       val trans = accounts.flatMap { a =>
         val senderBalance = state.asInstanceOf[BalanceSheet].balance(a.address)
         (1 to 2) map (i => transactionModule.createPayment(a, recepient, senderBalance / 2, 1))
@@ -152,6 +146,7 @@ with TransactionTestingCommons {
         genValidTransaction()
         peers.foreach(_.blockStorage.history.height() should be > height)
         history.height() should be > height
+        history.lastBlock.transactions.nonEmpty shouldBe true
         state.hash should not be st1
         peers.foreach(_.transactionModule.blockStorage.history.contains(last))
       }
@@ -175,6 +170,13 @@ with TransactionTestingCommons {
   }
 
   def stopGeneration(): Unit = {
+    log.info("Stop generation for all peers")
     peers.foreach(_.blockGenerator ! StopGeneration)
+    untilTimeout(5.seconds) {
+      peers.foreach { p =>
+        Await.result(p.blockGenerator ? GetStatus, timeout.duration) shouldBe Syncing.name
+      }
+    }
+
   }
 }

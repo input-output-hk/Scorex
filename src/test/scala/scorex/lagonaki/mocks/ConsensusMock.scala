@@ -5,8 +5,10 @@ import scorex.transaction.TransactionModule
 import scorex.transaction.account.PublicKeyAccount
 
 class ConsensusMock extends NxtLikeConsensusModule{
+/*
   override protected def calcTarget(lbd: NxtLikeConsensusBlockData, lbt: Long, g: PublicKeyAccount)
                                    (implicit transactionModule: TransactionModule[_]): BigInt = {
       BigInt("99999999999999999999999999")
   }
+*/
 }

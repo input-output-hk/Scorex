@@ -1,6 +1,7 @@
 package scorex.transaction
 
 import java.io.File
+
 import org.scalacheck.Gen
 import org.scalatest._
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}

@@ -2,7 +2,7 @@
 
 lazy val commonSettings = Seq(
   organization := "org.consensusresearch",
-  version := "1.2.4",
+  version := "1.2.5",
   scalaVersion := "2.11.8"
 )
 
@@ -45,11 +45,11 @@ resolvers ++= Seq("Sonatype Releases" at "https://oss.sonatype.org/content/repos
 
 libraryDependencies ++=
   Dependencies.db ++
-  Dependencies.spray ++
-  Dependencies.akka ++
-  Dependencies.serizalization ++
-  Dependencies.testKit ++
-  Dependencies.logging
+    Dependencies.http ++
+    Dependencies.akka ++
+    Dependencies.serizalization ++
+    Dependencies.testKit ++
+    Dependencies.logging
 
 scalacOptions ++= Seq("-feature", "-deprecation")
 
