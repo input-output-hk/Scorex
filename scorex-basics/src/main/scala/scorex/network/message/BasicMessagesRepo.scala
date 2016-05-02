@@ -2,16 +2,14 @@ package scorex.network.message
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util
-
 import com.google.common.primitives.{Bytes, Ints}
 import scorex.block.Block
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
-import scorex.crypto.singing.SigningFunctions
-import scorex.crypto.singing.SigningFunctions.Signature
+import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
+import scorex.transaction.proof.Signature25519
 import scorex.transaction.{TransactionModule, History}
-
 import scala.util.Try
 
 
@@ -65,11 +63,10 @@ class BasicMessagesRepo()(implicit val transactionalModule: TransactionModule[_]
 
   trait SignaturesSeqSpec extends MessageSpec[Seq[SigningFunctions.Signature]] {
 
-    import scorex.crypto.EllipticCurveImpl.SignatureLength
-
+    private val SignatureLength = Signature25519.SignatureSize
     private val DataLength = 4
 
-    override def deserializeData(bytes: Array[Byte]): Try[Seq[Signature]] = Try {
+    override def deserializeData(bytes: Array[Byte]): Try[Seq[SigningFunctions.Signature]] = Try {
       val lengthBytes = bytes.take(DataLength)
       val length = Ints.fromByteArray(lengthBytes)
 
@@ -81,7 +78,7 @@ class BasicMessagesRepo()(implicit val transactionalModule: TransactionModule[_]
       }.toSeq
     }
 
-    override def serializeData(signatures: Seq[Signature]): Array[Byte] = {
+    override def serializeData(signatures: Seq[SigningFunctions.Signature]): Array[Byte] = {
       val length = signatures.size
       val lengthBytes = Ints.toByteArray(length)
 
