@@ -2,7 +2,6 @@ package scorex.transaction
 
 import scorex.block.Block
 import scorex.block.Block.BlockId
-import scorex.transaction.History.BlockchainScore
 import scorex.utils.ScorexLogging
 
 trait BlockChain extends History with ScorexLogging {

@@ -9,7 +9,8 @@ import scorex.transaction.account.Account
 import scala.util.Try
 
 /**
-  * History of a blockchain system is some blocktree in fact(like this: http://image.slidesharecdn.com/sfbitcoindev-chepurnoy-2015-150322043044-conversion-gate01/95/proofofstake-its-improvements-san-francisco-bitcoin-devs-hackathon-12-638.jpg),
+  * History of a blockchain system is some blocktree in fact
+  * (like this: http://image.slidesharecdn.com/sfbitcoindev-chepurnoy-2015-150322043044-conversion-gate01/95/proofofstake-its-improvements-san-francisco-bitcoin-devs-hackathon-12-638.jpg),
   * where longest chain is being considered as canonical one, containing right kind of history.
   *
   * In cryptocurrencies of today blocktree view is usually implicit, means code supports only linear history,

@@ -1,6 +1,5 @@
 package scorex.transaction.box
 
-
 sealed trait Lock {
   val bytes: Array[Byte]
 }
