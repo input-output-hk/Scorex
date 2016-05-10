@@ -4,7 +4,7 @@
 dependencyOverrides in ThisBuild ++= Set(
   "ch.qos.logback" % "logback-classic" % "1.1.7",
   "ch.qos.logback" % "logback-core" % "1.1.7",
-  "com.chuusai" % "shapeless_2.11" % "2.3.0",
+  "com.chuusai" % "shapeless_2.11" % "2.3.1-RC1",
   "com.fasterxml.jackson.core" % "jackson-annotations" % "2.5.4",
   "com.fasterxml.jackson.core" % "jackson-core" % "2.5.4",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4",
@@ -39,7 +39,7 @@ dependencyOverrides in ThisBuild ++= Set(
   "com.typesafe.play" % "play-functional_2.11" % "2.4.6",
   "com.typesafe.play" % "play-iteratees_2.11" % "2.4.6",
   "com.typesafe.play" % "play-json_2.11" % "2.4.6",
-  "commons-net" % "commons-net" % "3.4",
+  "commons-net" % "commons-net" % "3.5",
   "io.netty" % "netty" % "3.10.0.Final",
   "io.spray" % "spray-json_2.11" % "1.3.2",
   "io.swagger" % "swagger-annotations" % "1.5.8",
@@ -55,7 +55,7 @@ dependencyOverrides in ThisBuild ++= Set(
   "org.apache.commons" % "commons-lang3" % "3.2.1",
   "org.bitlet" % "weupnp" % "0.1.4",
   "org.codehaus.woodstox" % "stax2-api" % "3.1.4",
-  "org.consensusresearch" % "scrypto_2.11" % "1.2.0-M1",
+  "org.consensusresearch" % "scrypto_2.11" % "1.2.0-M5",
   "org.javassist" % "javassist" % "3.18.2-GA",
   "org.joda" % "joda-convert" % "1.7",
   "org.json4s" % "json4s-ast_2.11" % "3.2.11",
@@ -80,4 +80,4 @@ dependencyOverrides in ThisBuild ++= Set(
   "org.whispersystems" % "curve25519-java" % "0.2.4",
   "org.yaml" % "snakeyaml" % "1.12"
 )
-// LIBRARY_DEPENDENCIES_HASH b66f52c87c9363f1560be628c9f201076847f652
+// LIBRARY_DEPENDENCIES_HASH 4cfa9221e0167acfd50da0527879f7d9d836157c
