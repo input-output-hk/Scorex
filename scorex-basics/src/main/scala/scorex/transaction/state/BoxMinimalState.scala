@@ -1,5 +1,5 @@
 package scorex.transaction.state
 
-import scorex.transaction.box.{Lock, Box}
+import scorex.transaction.box.{Proposition, Box}
 
-trait BoxMinimalState[L <: Lock] extends MinimalState[Box[L]]
+trait BoxMinimalState[L <: Proposition] extends MinimalState[Box[L]]
