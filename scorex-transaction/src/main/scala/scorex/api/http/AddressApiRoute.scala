@@ -35,14 +35,16 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   ))
   def deleteAddress: Route = {
     path(Segment) { case address =>
-      deleteJsonRoute {
-        walletNotExists(wallet).getOrElse {
-          if (!Account.isValidAddress(address)) {
-            InvalidAddress.json
-          } else {
-            val deleted = wallet.privateKeyAccount(address).exists(account =>
-              wallet.deleteAccount(account))
-            Json.obj("deleted" -> deleted)
+      withAuth {
+        deleteJsonRoute {
+          walletNotExists(wallet).getOrElse {
+            if (!Account.isValidAddress(address)) {
+              InvalidAddress.json
+            } else {
+              val deleted = wallet.privateKeyAccount(address).exists(account =>
+                wallet.deleteAccount(account))
+              Json.obj("deleted" -> deleted)
+            }
           }
         }
       }
@@ -107,7 +109,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
       value = "Json with data",
       required = true,
       paramType = "body",
-      dataType = "SignedMessage",
+      dataType = "scorex.api.http.SignedMessage",
       defaultValue = "{\n\t\"message\":\"Plain message\",\n\t\"signature\":\"Base58-encoded signature\",\n\t\"publickey\":\"Base58-encoded public key\"\n}"
     )
   ))
@@ -228,14 +230,16 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   @ApiOperation(value = "Create", notes = "Create a new account in the wallet(if it exists)", httpMethod = "POST")
   def create: Route = {
     path("addresses") {
-      postJsonRoute({
-        walletNotExists(wallet).getOrElse {
-          wallet.generateNewAccount() match {
-            case Some(pka) => Json.obj("address" -> pka.address)
-            case None => Unknown.json
+      withAuth {
+        postJsonRoute {
+          walletNotExists(wallet).getOrElse {
+            wallet.generateNewAccount() match {
+              case Some(pka) => Json.obj("address" -> pka.address)
+              case None => Unknown.json
+            }
           }
         }
-      })
+      }
     }
   }
 
@@ -251,10 +255,10 @@ case class AddressApiRoute(override val application: Application)(implicit val c
     }
 
   private def signPath(address: String, encode: Boolean) = {
-    withCors {
-      entity(as[String]) { message =>
-        complete {
-          val jsRes = walletNotExists(wallet).getOrElse {
+    entity(as[String]) { message =>
+      withAuth {
+        postJsonRoute {
+          walletNotExists(wallet).getOrElse {
             if (!Account.isValidAddress(address)) {
               InvalidAddress.json
             } else {
@@ -272,18 +276,18 @@ case class AddressApiRoute(override val application: Application)(implicit val c
               }
             }
           }
-          jsRes.toString()
         }
       }
     }
   }
 
+
   private def verifyPath(address: String, decode: Boolean) = {
-    withCors {
-      entity(as[String]) { jsText =>
-        complete {
+    entity(as[String]) { jsText =>
+      withAuth {
+        postJsonRoute {
           val parsed = Try(Json.parse(jsText)).getOrElse(WrongJson.json)
-          val jsRes = parsed.validate[SignedMessage] match {
+          parsed.validate[SignedMessage] match {
             case err: JsError =>
               WrongJson.json
             case JsSuccess(m: SignedMessage, _) =>
@@ -304,7 +308,6 @@ case class AddressApiRoute(override val application: Application)(implicit val c
                 }
               }
           }
-          Json.stringify(jsRes)
         }
       }
     }

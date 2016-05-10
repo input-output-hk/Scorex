@@ -3,7 +3,6 @@ package scorex.api.http
 import javax.ws.rs.Path
 
 import akka.actor.ActorRefFactory
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -25,7 +24,11 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
 
   override lazy val route = payment
 
-  @ApiOperation(value = "Send payment", notes = "Send payment to another wallet", httpMethod = "POST", produces = "application/json", consumes = "application/json")
+  @ApiOperation(value = "Send payment",
+    notes = "Send payment to another wallet",
+    httpMethod = "POST",
+    produces = "application/json",
+    consumes = "application/json")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(
       name = "body",
@@ -40,43 +43,42 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
     new ApiResponse(code = 200, message = "Json with response or error")
   ))
   def payment: Route = path("payment") {
-    withCors {
-      entity(as[String]) { body =>
-        val resp = walletNotExists(wallet).getOrElse {
-          Try(Json.parse(body)).map { js =>
-            js.validate[Payment] match {
-              case err: JsError =>
-                err
-              case JsSuccess(payment: Payment, _) =>
-                val txOpt = transactionModule.createPayment(payment, wallet)
-                txOpt match {
-                  case Some(tx) =>
-                    tx.validate match {
-                      case ValidationResult.ValidateOke =>
-                        tx.json
+    entity(as[String]) { body =>
+      withAuth {
+        postJsonRoute {
+          walletNotExists(wallet).getOrElse {
+            Try(Json.parse(body)).map { js =>
+              js.validate[Payment] match {
+                case err: JsError =>
+                  WrongTransactionJson(err).json
+                case JsSuccess(payment: Payment, _) =>
+                  val txOpt = transactionModule.createPayment(payment, wallet)
+                  txOpt match {
+                    case Some(tx) =>
+                      tx.validate match {
+                        case ValidationResult.ValidateOke =>
+                          tx.json
 
-                      case ValidationResult.InvalidAddress =>
-                        InvalidAddress.json
+                        case ValidationResult.InvalidAddress =>
+                          InvalidAddress.json
 
-                      case ValidationResult.NegativeAmount =>
-                        NegativeAmount.json
+                        case ValidationResult.NegativeAmount =>
+                          NegativeAmount.json
 
-                      case ValidationResult.NegativeFee =>
-                        NegativeFee.json
+                        case ValidationResult.NegativeFee =>
+                          NegativeFee.json
 
-                      case ValidationResult.NoBalance =>
-                        NoBalance.json
-                    }
-                  case None =>
-                    InvalidSender.json
-                }
-            }
-          }.getOrElse(WrongJson.json)
-        }.toString
-
-        complete(HttpEntity(ContentTypes.`application/json`, resp))
+                        case ValidationResult.NoBalance =>
+                          NoBalance.json
+                      }
+                    case None =>
+                      InvalidSender.json
+                  }
+              }
+            }.getOrElse(WrongJson.json)
+          }
+        }
       }
     }
   }
-
 }

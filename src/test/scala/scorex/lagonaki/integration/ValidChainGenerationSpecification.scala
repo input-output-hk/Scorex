@@ -57,10 +57,8 @@ with TransactionTestingCommons {
   test("Generate block with plenty of transactions") {
     val block = untilTimeout(1.minute) {
       stopGeneration()
-      if (transactionModule.packUnconfirmed().size < UnconfirmedTransactionsDatabaseImpl.SizeLimit) {
-        (0 to UnconfirmedTransactionsDatabaseImpl.SizeLimit) foreach (i => genValidTransaction())
-
-      }
+      val toGen = UnconfirmedTransactionsDatabaseImpl.SizeLimit - transactionModule.packUnconfirmed().size
+      (0 until toGen) foreach (i => genValidTransaction())
       val blocksFuture = application.consensusModule.generateNextBlocks(Seq(accounts.head))(transactionModule)
       val blocks: Seq[Block] = Await.result(blocksFuture, 10.seconds)
       blocks.nonEmpty shouldBe true
@@ -113,10 +111,12 @@ with TransactionTestingCommons {
     val (trans, valid) = untilTimeout(5.seconds) {
       cleanTransactionPool()
       stopGeneration()
+      accounts.map(a => state.asInstanceOf[BalanceSheet].balance(a.address)).exists(_ > 2) shouldBe true
       val trans = accounts.flatMap { a =>
         val senderBalance = state.asInstanceOf[BalanceSheet].balance(a.address)
         (1 to 2) map (i => transactionModule.createPayment(a, recepient, senderBalance / 2, 1))
       }
+      state.validate(trans).nonEmpty shouldBe true
       val valid = transactionModule.packUnconfirmed()
       valid.nonEmpty shouldBe true
       (trans, valid)
