@@ -5,7 +5,6 @@ import java.net.InetSocketAddress
 
 import play.api.libs.json.{JsObject, Json}
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.CryptographicHash.Digest
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.duration._
