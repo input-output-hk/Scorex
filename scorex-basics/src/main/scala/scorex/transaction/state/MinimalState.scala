@@ -14,9 +14,9 @@ trait MinimalState[ELEM <: StateElement] {
 
   private[transaction] def processBlock(block: Block): Try[MinimalState[ELEM]]
 
-  def isValid(tx: Transaction): Boolean = areValid(Seq(tx))
+  def isValid(tx: Transaction): Boolean
 
-  def areValid(txs: Seq[Transaction], height: Option[Int] = None): Boolean = validate(txs, height).size == txs.size
+  def areValid(txs: Seq[Transaction], height: Option[Int] = None): Boolean
 
   def validate(txs: Seq[Transaction], height: Option[Int] = None): Seq[Transaction]
 
