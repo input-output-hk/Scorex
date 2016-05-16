@@ -13,8 +13,8 @@ trait BlockTestingCommons extends TestingCommons {
 
   import TestingCommons._
 
-  implicit val consensusModule = new ConsensusMock
-  implicit val transactionModule = new SimpleTransactionModule()(application.settings, application)
+  override implicit val consensusModule = new ConsensusMock
+  override implicit val transactionModule = new SimpleTransactionModule()(application.settings, application)
 
   val genesis: Block[AccountTransaction] = Block.genesis()
   val gen = new PrivateKeyAccount(Array.fill(32)(Random.nextInt(Byte.MaxValue).toByte))

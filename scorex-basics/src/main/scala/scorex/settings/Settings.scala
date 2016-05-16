@@ -67,7 +67,6 @@ trait Settings extends ScorexLogging {
   lazy val bindAddress = (p2pSettings \ "bindAddress").asOpt[String].getOrElse(DefaultBindAddress)
   lazy val maxConnections = (p2pSettings \ "maxConnections").asOpt[Int].getOrElse(DefaultMaxConnections)
   lazy val connectionTimeout = (p2pSettings \ "connectionTimeout").asOpt[Int].getOrElse(DefaultConnectionTimeout)
-  lazy val pingInterval = (p2pSettings \ "pingInterval").asOpt[Int].getOrElse(DefaultPingInterval)
   lazy val upnpEnabled = (p2pSettings \ "upnp").asOpt[Boolean].getOrElse(true)
   lazy val upnpGatewayTimeout = (p2pSettings \ "upnpGatewayTimeout").asOpt[Int]
   lazy val upnpDiscoverTimeout = (p2pSettings \ "upnpDiscoverTimeout").asOpt[Int]
@@ -105,7 +104,6 @@ trait Settings extends ScorexLogging {
   //NETWORK
   private val DefaultMaxConnections = 20
   private val DefaultConnectionTimeout = 60
-  private val DefaultPingInterval = 30000
   private val DefaultBindAddress = "127.0.0.1"
 
   val MaxBlocksChunks = 10
