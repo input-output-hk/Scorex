@@ -17,5 +17,9 @@ Dockerfile
 # logs
 *.log
 
+# db files
+
+*.data
+
 # non-submodules code
 src/main
