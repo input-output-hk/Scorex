@@ -1,11 +1,11 @@
 package scorex.lagonaki
 
-import scorex.transaction.account.{AccountTransaction, PrivateKeyAccount}
+import scorex.transaction.account.PrivateKeyAccount
 import scorex.block.Block
 import scorex.block.Block._
 import scorex.consensus.nxt.{NxtLikeConsensusBlockData, NxtLikeConsensusModule}
 import scorex.lagonaki.mocks.ConsensusMock
-import scorex.transaction.{PaymentTransaction, SimpleTransactionModule, Transaction}
+import scorex.transaction.{AccountTransaction, PaymentTransaction, SimpleTransactionModule}
 
 import scala.util.Random
 
@@ -16,14 +16,14 @@ trait BlockTestingCommons extends TestingCommons {
   implicit val consensusModule = new ConsensusMock
   implicit val transactionModule = new SimpleTransactionModule()(application.settings, application)
 
-  val genesis: Block = Block.genesis()
+  val genesis: Block[AccountTransaction] = Block.genesis()
   val gen = new PrivateKeyAccount(Array.fill(32)(Random.nextInt(Byte.MaxValue).toByte))
 
   protected var lastBlockId: BlockId = genesis.uniqueId
 
   def genBlock(bt: Long, gs: Array[Byte], seed: Array[Byte], parentId: Option[BlockId] = None,
                transactions: Seq[AccountTransaction] = Seq.empty)
-              (implicit consensusModule: NxtLikeConsensusModule, transactionModule: SimpleTransactionModule): Block = {
+              (implicit consensusModule: NxtLikeConsensusModule, transactionModule: SimpleTransactionModule): Block[AccountTransaction] = {
 
     val reference = parentId.getOrElse(lastBlockId)
 

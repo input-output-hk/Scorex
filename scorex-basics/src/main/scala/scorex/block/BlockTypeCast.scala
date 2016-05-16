@@ -1,8 +1,24 @@
 package scorex.block
 
-/**
-  * Created by kushti on 13.05.16.
-  */
+import scorex.transaction.Transaction
+import scorex.transaction.state.StateElement
+import shapeless._
+
+
 object BlockTypeCast {
+
+  implicit def blockTypeable[TX <: Transaction[_]]: Typeable[Block[TX]] =
+    new Typeable[Block[TX]] {
+
+      def cast(t: Any): Option[Block[TX]] = {
+        if (t == null) None
+        else if (t.isInstanceOf[Block[_]]) {
+          //todo: potentially dangerous, but it is not clear atm how to distinguish a type from block representation
+          Some(t.asInstanceOf[Block[TX]])
+        } else None
+      }
+
+      override def describe: String = "Block[SE]"
+    }
 
 }

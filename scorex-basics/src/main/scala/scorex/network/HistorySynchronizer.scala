@@ -2,14 +2,14 @@ package scorex.network
 
 import akka.actor.Props
 import scorex.app.Application
-import scorex.block.Block
+import scorex.block.{BlockTypeCast, Block}
 import scorex.block.Block.BlockId
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.crypto.encode.Base58
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.ScoreObserver.{ConsideredValue, GetScore, UpdateScore}
 import scorex.network.message.Message
-import scorex.transaction.History
+import scorex.transaction.{Transaction, History}
 import scorex.utils.ScorexLogging
 import shapeless.syntax.typeable._
 
@@ -17,9 +17,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
+import BlockTypeCast._
+
 
 //todo: write tests
-class HistorySynchronizer(application: Application) extends ViewSynchronizer with ScorexLogging {
+class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) extends ViewSynchronizer with ScorexLogging {
 
   import HistorySynchronizer._
   import application.basicMessagesSpecsRepo._
@@ -121,11 +123,11 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
       }
   }: Receive)
 
-  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block])]): Receive =
+  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive =
     state(HistorySynchronizer.GettingBlock, {
 
-      case DataFromPeer(msgId, block: Block@unchecked, connectedPeer)
-        if msgId == BlockMessageSpec.messageCode && block.cast[Block].isDefined =>
+      case DataFromPeer(msgId, block: Block[TX]@unchecked, connectedPeer)
+        if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
 
         lastUpdate = System.currentTimeMillis()
         val blockId = block.uniqueId
@@ -153,14 +155,14 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
 
   //accept only new block from local or remote
   def synced: Receive = state(HistorySynchronizer.Synced, {
-    case block: Block =>
+    case block: Block[TX] =>
       processNewBlock(block, local = true)
 
     case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
       if (networkScore > history.score()) gotoGettingExtension(networkScore, witnesses)
 
-    case DataFromPeer(msgId, block: Block@unchecked, _)
-      if msgId == BlockMessageSpec.messageCode && block.cast[Block].isDefined =>
+    case DataFromPeer(msgId, block: Block[TX]@unchecked, _)
+      if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
       processNewBlock(block, local = false)
   }: Receive)
 
@@ -178,7 +180,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
     context become gettingExtension(betterScore, witnesses)
   }
 
-  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block])]): Receive = {
+  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive = {
     log.debug("Transition to gettingBlocks")
     context become gettingBlocks(witnesses, blocks)
     gettingBlocks(witnesses, blocks)
@@ -191,7 +193,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
     synced
   }
 
-  private def processNewBlock(block: Block, local: Boolean): Boolean = Try {
+  private def processNewBlock(block: Block[TX], local: Boolean): Boolean = Try {
     if (block.isValid) {
       log.info(s"New block(local: $local): ${block.json}")
 

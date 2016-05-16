@@ -19,11 +19,11 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
 
   import NxtLikeConsensusModule._
 
-  implicit val consensusModule: ConsensusModule[NxtLikeConsensusBlockData] = this
+  implicit val consensusModule: ConsensusModule[NxtLikeConsensusBlockData, Account, AccountTransaction] = this
 
   val version = 1: Byte
 
-  override def isValid[TT](block: Block)(implicit transactionModule: TransactionModule[TT]): Boolean = Try {
+  override def isValid[TT](block: Block[AccountTransaction])(implicit transactionModule: TransactionModule[TT, AccountTransaction]): Boolean = Try {
 
     val history = transactionModule.blockStorage.history
 
@@ -56,7 +56,7 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
 
 
   override def generateNextBlock[TT](account: PrivateKeyAccount)
-                                    (implicit transactionModule: TransactionModule[TT]): Future[Option[Block]] = {
+                                    (implicit transactionModule: TransactionModule[TT, AccountTransaction]): Future[Option[Block[AccountTransaction]]] = {
 
     val lastBlock = transactionModule.blockStorage.history.lastBlock
     val lastBlockKernelData = consensusBlockData(lastBlock)
@@ -83,7 +83,7 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
       }
 
       val unconfirmed = transactionModule.packUnconfirmed()
-      log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[Transaction]].size} transactions")
+      log.debug(s"Build block with ${unconfirmed.asInstanceOf[Seq[AccountTransaction]].size} transactions")
 
       Future(Some(Block.buildAndSign(version,
         timestamp,
@@ -112,7 +112,7 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
 
   protected def calcTarget(lastBlockData: NxtLikeConsensusBlockData,
                          lastBlockTimestamp: Long,
-                         generator: PublicKeyAccount)(implicit transactionModule: TransactionModule[_]): BigInt = {
+                         generator: PublicKeyAccount)(implicit transactionModule: TransactionModule[_, AccountTransaction]): BigInt = {
     val eta = (NTP.correctedTime() - lastBlockTimestamp) / 1000 //in seconds
     val effBalance = transactionModule.blockStorage.state.asInstanceOf[BalanceSheet].generationBalance(generator)
     BigInt(lastBlockData.baseTarget) * eta * effBalance
@@ -128,12 +128,12 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
     })
   }
 
-  override def blockScore(block: Block)(implicit transactionModule: TransactionModule[_]): BigInt = {
+  override def blockScore(block: Block[AccountTransaction])(implicit transactionModule: TransactionModule[_, AccountTransaction]): BigInt = {
     val baseTarget = consensusBlockData(block).baseTarget
     BigInt("18446744073709551616") / baseTarget
   }.ensuring(_ > 0)
 
-  override def generators(block: Block): Seq[Account] = Seq(block.signerDataField.value.generator)
+  override def generators(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
 
   override def genesisData: BlockField[NxtLikeConsensusBlockData] =
     NxtConsensusBlockField(new NxtLikeConsensusBlockData {
@@ -144,7 +144,7 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
   override def formBlockData(data: NxtLikeConsensusBlockData): BlockField[NxtLikeConsensusBlockData] =
     NxtConsensusBlockField(data)
 
-  override def consensusBlockData(block: Block): NxtLikeConsensusBlockData = block.consensusDataField.value match {
+  override def consensusBlockData(block: Block[AccountTransaction]): NxtLikeConsensusBlockData = block.consensusDataField.value match {
     case b: NxtLikeConsensusBlockData => b
     case m => throw new AssertionError(s"Only NxtLikeConsensusBlockData is available, $m given")
   }

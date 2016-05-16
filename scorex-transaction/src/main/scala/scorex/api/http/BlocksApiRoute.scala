@@ -7,12 +7,13 @@ import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
-import scorex.transaction.BlockChain
+import scorex.transaction.{Transaction, BlockChain}
 import scorex.transaction.account.Account
+import scorex.transaction.state.StateElement
 
 @Path("/blocks")
 @Api(value = "/blocks", description = "Info about blockchain & individual blocks within it")
-case class BlocksApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
+case class BlocksApiRoute[TX <: Transaction[_]](override val application: Application[TX])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet
@@ -46,7 +47,7 @@ case class BlocksApiRoute(override val application: Application)(implicit val co
       getJsonRoute {
         withBlock(history, encodedSignature) { block =>
           history match {
-            case blockchain: BlockChain =>
+            case blockchain: BlockChain[TX] =>
               blockchain.children(block).headOption.map(_.json).getOrElse(
                 Json.obj("status" -> "error", "details" -> "No child blocks"))
             case _ =>
@@ -108,7 +109,7 @@ case class BlocksApiRoute(override val application: Application)(implicit val co
     path("at" / IntNumber) { case height =>
       getJsonRoute {
         history match {
-          case blockchain: BlockChain =>
+          case blockchain: BlockChain[TX] =>
             blockchain
               .blockAt(height)
               .map(_.json)
@@ -130,7 +131,7 @@ case class BlocksApiRoute(override val application: Application)(implicit val co
     path("seq" / IntNumber / IntNumber) { case (start, end) =>
       getJsonRoute {
         history match {
-          case blockchain: BlockChain =>
+          case blockchain: BlockChain[TX] =>
             JsArray(
               (start to end).map { height =>
                 blockchain.blockAt(height).map(_.json).getOrElse(Json.obj("error" -> s"No block at height $height"))

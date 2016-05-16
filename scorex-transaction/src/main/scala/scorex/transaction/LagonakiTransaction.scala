@@ -5,7 +5,6 @@ import play.api.libs.json.Json
 import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.transaction.LagonakiTransaction.{ValidationResult, _}
-import scorex.transaction.account.AccountTransaction
 
 import scala.concurrent.duration._
 import scala.util.Try

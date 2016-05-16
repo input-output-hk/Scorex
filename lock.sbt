@@ -4,7 +4,7 @@
 dependencyOverrides in ThisBuild ++= Set(
   "ch.qos.logback" % "logback-classic" % "1.1.7",
   "ch.qos.logback" % "logback-core" % "1.1.7",
-  "com.chuusai" % "shapeless_2.11" % "2.3.1-RC1",
+  "com.chuusai" % "shapeless_2.11" % "2.3.1",
   "com.fasterxml.jackson.core" % "jackson-annotations" % "2.5.4",
   "com.fasterxml.jackson.core" % "jackson-core" % "2.5.4",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4",

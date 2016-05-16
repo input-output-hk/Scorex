@@ -9,7 +9,7 @@ import scorex.consensus.ConsensusModule
 import scorex.crypto.encode.Base58
 import scorex.transaction.BlockStorage._
 import scorex.transaction.account.Account
-import scorex.transaction.{BlockTree, TransactionModule}
+import scorex.transaction.{Transaction, BlockTree, TransactionModule}
 import scorex.utils.ScorexLogging
 
 import scala.annotation.tailrec
@@ -19,25 +19,25 @@ import scala.util.{Failure, Success, Try}
   * TODO fix
   * If no datafolder provided, blocktree lives in RAM (useful for tests)
   */
-class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
-                     (implicit consensusModule: ConsensusModule[_],
-                      transactionModule: TransactionModule[_])
-  extends BlockTree with ScorexLogging {
+class StoredBlockTree[TX <: Transaction[_]](dataFolderOpt: Option[String], MaxRollback: Int)
+                     (implicit consensusModule: ConsensusModule[_, _, TX],
+                      transactionModule: TransactionModule[_, TX])
+  extends BlockTree[TX] with ScorexLogging {
 
   trait BlockTreePersistence {
     type Score = BigInt
     type Height = Int
-    type StoredBlock = (Block, Score, Height)
+    type StoredBlock = (Block[TX], Score, Height)
 
-    def writeBlock(block: Block): Try[Boolean]
+    def writeBlock(block: Block[TX]): Try[Boolean]
 
     def readBlock(id: BlockId): Option[StoredBlock]
 
-    def readBlock(block: Block): Option[StoredBlock] = readBlock(block.uniqueId)
+    def readBlock(block: Block[TX]): Option[StoredBlock] = readBlock(block.uniqueId)
 
-    def filter(f: Block => Boolean): Seq[StoredBlock] = {
+    def filter(f: Block[TX] => Boolean): Seq[StoredBlock] = {
       @tailrec
-      def iterate(b: StoredBlock, f: Block => Boolean, acc: Seq[StoredBlock] = Seq.empty): Seq[StoredBlock] = {
+      def iterate(b: StoredBlock, f: Block[TX] => Boolean, acc: Seq[StoredBlock] = Seq.empty): Seq[StoredBlock] = {
         val newAcc: Seq[StoredBlock] = if (f(b._1)) b +: acc else acc
         readBlock(b._1.referenceField.value) match {
           case Some(parent) => iterate(parent, f, newAcc)
@@ -47,7 +47,7 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
       iterate(readBlock(getBestBlockId).get, f)
     }
 
-    def exists(block: Block): Boolean = exists(block.uniqueId)
+    def exists(block: Block[TX]): Boolean = exists(block.uniqueId)
 
     def exists(blockId: BlockId): Boolean = readBlock(blockId).isDefined
 
@@ -55,7 +55,7 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
 
     protected def getBestBlockId: BlockId
 
-    def changeBestChain(changes: Seq[(Block, Direction)]): Try[Unit]
+    def changeBestChain(changes: Seq[(Block[TX], Direction)]): Try[Unit]
 
     def lookForward(parentSignature: BlockId, howMany: Int): Seq[BlockId]
 
@@ -107,7 +107,7 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
       Try(Seq.empty)
     }.getOrElse(Seq.empty)
 
-    override def changeBestChain(changes: Seq[(Block, Direction)]): Try[Unit] = Try {
+    override def changeBestChain(changes: Seq[(Block[TX], Direction)]): Try[Unit] = Try {
       changes.map { c =>
         val parentId = c._1.referenceField.value
         c._2 match {
@@ -127,7 +127,7 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
       *
       * @return true when best block added, false when block score is less then current score
       */
-    override def writeBlock(block: Block): Try[Boolean] = Try {
+    override def writeBlock(block: Block[TX]): Try[Boolean] = Try {
       if (exists(block)) log.warn(s"Trying to add block ${block.encodedId} that is already in tree "
         + s" at height ${readBlock(block).map(_._3)}")
       val parent = readBlock(block.referenceField.value)
@@ -182,7 +182,7 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
 
   override def height(): Int = blockStorage.bestBlock.map(_._3).getOrElse(0)
 
-  override private[transaction] def appendBlock(block: Block): Try[BlocksToProcess] = {
+  override private[transaction] def appendBlock(block: Block[TX]): Try[Seq[Block[TX]]] = {
     val parent = block.referenceField
     val h = height()
     if ((h == 0) || (lastBlock.uniqueId sameElements block.referenceField.value)) {
@@ -208,22 +208,22 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
     }
   }
 
-  def branchBlock(b1: Block, b2: Block, in: Int): Option[Block] = {
+  def branchBlock(b1: Block[TX], b2: Block[TX], in: Int): Option[Block[TX]] = {
     val b1LastBlocks = lastBlocks(b1, in)
     find(b2, in)(b => b1LastBlocks.exists(x => x.uniqueId sameElements b.uniqueId))
   }
 
   override def heightOf(blockId: BlockId): Option[Int] = blockStorage.readBlock(blockId).map(_._3)
 
-  override def blockById(blockId: BlockId): Option[Block] = blockStorage.readBlock(blockId).map(_._1)
+  override def blockById(blockId: BlockId): Option[Block[TX]] = blockStorage.readBlock(blockId).map(_._1)
 
-  override def generatedBy(account: Account): Seq[Block] = blockStorage.filter { b =>
+  override def generatedBy(account: Account): Seq[Block[TX]] = blockStorage.filter { b =>
     consensusModule.generators(b).contains(account)
   }.map(_._1)
 
-  override def lastBlock: Block = blockStorage.bestBlock.map(_._1).get
+  override def lastBlock: Block[TX] = blockStorage.bestBlock.map(_._1).get
 
-  def find(block: Block, limit: Int)(condition: Block => Boolean): Option[Block] = if (limit > 0) {
+  def find(block: Block[TX], limit: Int)(condition: Block[TX] => Boolean): Option[Block[TX]] = if (limit > 0) {
     parent(block) match {
       case Some(pb) =>
         if (condition(pb)) Some(pb)
@@ -232,9 +232,9 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
     }
   } else None
 
-  def lastBlocks(block: Block, howMany: Int): Seq[Block] = {
+  def lastBlocks(block: Block[TX], howMany: Int): Seq[Block[TX]] = {
     require(howMany >= 0)
-    def loop(block: Block, i: Int, acc: Seq[Block] = Seq.empty): Seq[Block] = {
+    def loop(block: Block[TX], i: Int, acc: Seq[Block[TX]] = Seq.empty): Seq[Block[TX]] = {
       lazy val p = parent(block)
       (i, p) match {
         case (0, _) => acc
@@ -245,13 +245,13 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
     loop(block, howMany)
   }
 
-  override def lastBlocks(howMany: Int): Seq[Block] = {
+  override def lastBlocks(howMany: Int): Seq[Block[TX]] = {
     lastBlocks(lastBlock, howMany).reverse
   }
 
   override def score(): BigInt = blockStorage.bestBlock.map(_._2).getOrElse(BigInt(0))
 
-  override def parent(block: Block, back: Int = 1): Option[Block] = {
+  override def parent(block: Block[TX], back: Int = 1): Option[Block[TX]] = {
     require(back > 0)
     val p = blockStorage.readBlock(block.referenceField.value).map(_._1)
     (back, p) match {
@@ -266,6 +266,6 @@ class StoredBlockTree(dataFolderOpt: Option[String], MaxRollback: Int)
 
   override def contains(id: BlockId): Boolean = blockStorage.exists(id)
 
-  override lazy val genesis: Block = blockById(Block.genesis().uniqueId).get
+  override lazy val genesis: Block[TX] = blockById(Block.genesis().uniqueId).get
 
 }

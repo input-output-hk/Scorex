@@ -10,10 +10,12 @@ import play.api.libs.json.{JsValue, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{FastCryptographicHash, SecureCryptographicHash}
+import scorex.transaction.Transaction
+import scorex.transaction.state.StateElement
 
 @Path("/utils")
 @Api(value = "/utils", description = "Useful functions", position = 3, produces = "application/json")
-case class UtilsApiRoute(override val application: Application)(implicit val context: ActorRefFactory) extends ApiRoute {
+case class UtilsApiRoute(override val application: Application[_ <: Transaction[_]])(implicit val context: ActorRefFactory) extends ApiRoute {
   val SeedSize = 32
 
   private def seed(length: Int): JsValue = {

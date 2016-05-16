@@ -1,6 +1,6 @@
 package scorex.transaction.state.database
 
-import scorex.transaction.account.AccountTransaction
+import scorex.transaction.AccountTransaction
 
 trait UnconfirmedTransactionsDatabase {
   def putIfNew(tx: AccountTransaction): Boolean

@@ -3,7 +3,6 @@ package scorex.transaction
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.crypto.encode.Base58
-import scorex.transaction.BlockStorage.BlocksToProcess
 import scorex.transaction.account.Account
 
 import scala.util.Try
@@ -20,7 +19,7 @@ import scala.util.Try
   * function has been used instead, even in PoW systems.
   */
 
-trait History {
+trait History[TX <: Transaction[_]] {
 
   import scorex.transaction.History.BlockchainScore
 
@@ -41,18 +40,19 @@ trait History {
     */
   def isEmpty: Boolean = height() == 0
 
-  def contains(block: Block): Boolean = contains(block.uniqueId)
+  def contains(block: Block[TX]): Boolean = contains(block.uniqueId)
 
   def contains(id: BlockId): Boolean = blockById(id).isDefined
 
-  def blockById(blockId: Block.BlockId): Option[Block]
+  def blockById(blockId: Block.BlockId): Option[Block[TX]]
 
-  def blockById(blockId: String): Option[Block] = Base58.decode(blockId).toOption.flatMap(blockById)
+  def blockById(blockId: String): Option[Block[TX]]
+    = Base58.decode(blockId).toOption.flatMap(blockById)
 
   /**
     * Height of a block if it's in the blocktree
     */
-  def heightOf(block: Block): Option[Int] = heightOf(block.uniqueId)
+  def heightOf(block: Block[TX]): Option[Int] = heightOf(block.uniqueId)
 
   def heightOf(blockId: Block.BlockId): Option[Int]
 
@@ -63,21 +63,20 @@ trait History {
     * @param block - block to append
     * @return Blocks to process in state
     */
-  private[transaction] def appendBlock(block: Block): Try[BlocksToProcess]
+  private[transaction] def appendBlock(block: Block[TX]): Try[Seq[Block[TX]]]
 
-  def parent(block: Block, back: Int = 1): Option[Block]
+  def parent(block: Block[TX], back: Int = 1): Option[Block[TX]]
 
-  def confirmations(block: Block): Option[Int] =
-    heightOf(block).map(height() - _)
+  def confirmations(block: Block[TX]): Option[Int] = heightOf(block).map(height() - _)
 
-  def generatedBy(account: Account): Seq[Block]
+  def generatedBy(account: Account): Seq[Block[TX]]
 
   /**
     * Block with maximum blockchain score
     */
-  def lastBlock: Block = lastBlocks(1).head
+  def lastBlock: Block[TX] = lastBlocks(1).head
 
-  def lastBlocks(howMany: Int): Seq[Block]
+  def lastBlocks(howMany: Int): Seq[Block[TX]]
 
   def lastBlockIds(howMany: Int): Seq[BlockId] = lastBlocks(howMany).map(b => b.uniqueId)
 
@@ -89,12 +88,11 @@ trait History {
   /**
     * Average delay in milliseconds between last $blockNum blocks starting from $block
     */
-  def averageDelay(block: Block, blockNum: Int): Try[Long] = Try {
+  def averageDelay(block: Block[TX], blockNum: Int): Try[Long] = Try {
     (block.timestampField.value - parent(block, blockNum).get.timestampField.value) / blockNum
   }
 
-  val genesis: Block
-
+  val genesis: Block[TX]
 }
 
 object History {

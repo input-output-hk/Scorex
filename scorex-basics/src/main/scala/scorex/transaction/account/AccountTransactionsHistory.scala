@@ -1,9 +1,9 @@
 package scorex.transaction.account
 
-import scorex.transaction.Transaction
+import scorex.transaction.AccountTransaction
 
 trait AccountTransactionsHistory {
-  def accountTransactions(address: String): Array[_ <: Transaction] = {
+  def accountTransactions(address: String): Array[_ <: AccountTransaction] = {
     Account.isValidAddress(address) match {
       case false => Array()
       case true =>
@@ -12,5 +12,5 @@ trait AccountTransactionsHistory {
     }
   }
 
-  def accountTransactions(account: Account): Array[_ <: Transaction]
+  def accountTransactions(account: Account): Array[_ <: AccountTransaction]
 }

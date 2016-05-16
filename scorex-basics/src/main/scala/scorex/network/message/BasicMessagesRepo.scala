@@ -9,12 +9,12 @@ import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
 import scorex.transaction.proof.Signature25519
-import scorex.transaction.{TransactionModule, History}
+import scorex.transaction.{Transaction, TransactionModule, History}
 import scala.util.Try
 
 
-class BasicMessagesRepo()(implicit val transactionalModule: TransactionModule[_],
-                          consensusModule: ConsensusModule[_]) {
+class BasicMessagesRepo[TX <: Transaction[_]]()(implicit val transactionalModule: TransactionModule[_, TX],
+                          consensusModule: ConsensusModule[_, _, TX]) {
 
   object GetPeersSpec extends MessageSpec[Unit] {
     override val messageCode: Message.MessageCode = 1: Byte
@@ -109,14 +109,14 @@ class BasicMessagesRepo()(implicit val transactionalModule: TransactionModule[_]
     }
   }
 
-  object BlockMessageSpec extends MessageSpec[Block] {
+  object BlockMessageSpec extends MessageSpec[Block[TX]] {
     override val messageCode: MessageCode = 23: Byte
 
     override val messageName: String = "Block message"
 
-    override def serializeData(block: Block): Array[Byte] = block.bytes
+    override def serializeData(block: Block[TX]): Array[Byte] = block.bytes
 
-    override def deserializeData(bytes: Array[Byte]): Try[Block] = Block.parse(bytes)
+    override def deserializeData(bytes: Array[Byte]): Try[Block[TX]] = Block.parse(bytes)
   }
 
   object ScoreMessageSpec extends MessageSpec[History.BlockchainScore] {

@@ -3,6 +3,7 @@ package scorex.transaction.state.database.blockchain
 import org.h2.mvstore.{MVMap, MVStore}
 import play.api.libs.json.{JsNumber, JsObject}
 import scorex.block.Block
+import scorex.consensus.ConsensusModule
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.transaction.LagonakiTransaction.ValidationResult
 import scorex.transaction._
@@ -89,10 +90,14 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
   }
 
 
-  override def processBlock(block: Block): Try[PersistentLagonakiState] = Try {
+  override def processBlock(block: Block[AccountTransaction]): Try[PersistentLagonakiState] = Try {
     val trans = block.transactions
+
+    //todo: asInstanceOf?
+    val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, Account, AccountTransaction]]
+
     trans.foreach(t => if (included(t).isDefined) throw new Error(s"Transaction $t is already in state"))
-    val fees: Map[Account, (AccState, Reason)] = block.consensusModule.feesDistribution(block)
+    val fees: Map[Account, (AccState, Reason)] = cm.feesDistribution(block)
       .map(m => m._1 ->(AccState(balance(m._1.address) + m._2), List(FeesStateChange(m._2))))
 
     val newBalances: Map[Account, (AccState, Reason)] = calcNewBalances(trans, fees)
@@ -166,7 +171,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
 
   //return seq of valid transactions
   @tailrec
-  override final def validate(trans: Seq[AccountTransaction], heightOpt: Option[Int] = None): Seq[Transaction[Account]] = {
+  override final def validate(trans: Seq[AccountTransaction], heightOpt: Option[Int] = None): Seq[AccountTransaction] = {
     val height = heightOpt.getOrElse(stateHeight)
     val txs = trans.filter(t => included(t).isEmpty && isValid(t, height))
     val nb = calcNewBalances(txs, Map.empty)

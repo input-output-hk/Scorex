@@ -4,9 +4,11 @@ import scorex.app.Application
 import scorex.block.Block
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.message.Message
+import scorex.transaction.Transaction
+import scorex.transaction.state.StateElement
 import scorex.utils.ScorexLogging
 
-class HistoryReplier(application: Application) extends ViewSynchronizer with ScorexLogging {
+class HistoryReplier[TX <: Transaction[_]](application: Application[TX]) extends ViewSynchronizer with ScorexLogging {
 
   import application.basicMessagesSpecsRepo._
 

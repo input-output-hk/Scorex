@@ -7,21 +7,20 @@ import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
-import scorex.transaction.account.{Account, AccountTransaction, PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.{StoredState, StoredBlockTree, StoredBlockchain}
+import scorex.transaction.state.database.blockchain.{StoredBlockTree, StoredBlockchain, PersistentLagonakiState}
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
-import shapeless.syntax.typeable
+import shapeless.syntax.typeable._
 
 import scala.concurrent.duration._
 import scala.util.Try
-import typeable._
 
 
-class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application)
-  extends TransactionModule[StoredInBlock] with ScorexLogging {
+class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application[AccountTransaction])
+  extends TransactionModule[StoredInBlock, AccountTransaction] with ScorexLogging {
 
   import SimpleTransactionModule._
 
@@ -33,11 +32,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   private val instance = this
 
-  override val blockStorage = new BlockStorage {
+  override val blockStorage = new BlockStorage[AccountTransaction] {
 
     override val MaxRollback: Int = settings.MaxRollback
 
-    override val history: History = settings.history match {
+    override val history: History[AccountTransaction] = settings.history match {
       case s: String if s.equalsIgnoreCase("blockchain") =>
         new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
       case s: String if s.equalsIgnoreCase("blocktree") =>
@@ -47,7 +46,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
         new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
     }
 
-    override val state = new StoredState(settings.dataDirOpt.map(_ + "/state.dat"))
+    override val state = new PersistentLagonakiState(settings.dataDirOpt.map(_ + "/state.dat"))
 
   }
 
@@ -77,7 +76,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   override def formBlockData(transactions: StoredInBlock): TransactionsBlockField = TransactionsBlockField(transactions)
 
   //TODO asInstanceOf
-  override def transactions(block: Block): StoredInBlock =
+  override def transactions(block: Block[AccountTransaction]): StoredInBlock =
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
@@ -101,7 +100,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     txs.diff(blockStorage.state.validate(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
   }
 
-  override def onNewOffchainTransaction(transaction: Transaction): Unit = transaction match {
+  override def onNewOffchainTransaction(transaction: AccountTransaction): Unit = transaction match {
     case tx: LagonakiTransaction =>
       if (UnconfirmedTransactionsDatabaseImpl.putIfNew(tx)) {
         val spec = TransactionalMessagesRepo.TransactionMessageSpec
@@ -148,8 +147,14 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     TransactionsBlockField(txs)
   }
 
-  override def isValid(block: Block): Boolean =
-    blockStorage.state.areValid(block.transactions, blockStorage.history.heightOf(block))
+  //todo: safe casting from shapeless?
+  override def isValid(block: Block[AccountTransaction]): Boolean = {
+    block.transactions match {
+      case transactions: Seq[LagonakiTransaction] =>
+        blockStorage.state.areValid(transactions, blockStorage.history.heightOf(block))
+      case _ => ???
+    }
+  }
 }
 
 object SimpleTransactionModule {

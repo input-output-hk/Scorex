@@ -6,7 +6,7 @@ import scorex.consensus.nxt.{NxtLikeConsensusBlockData, NxtLikeConsensusModule}
 import scorex.consensus.qora.{QoraLikeConsensusBlockData, QoraLikeConsensusModule}
 import scorex.lagonaki.TestingCommons
 import scorex.transaction._
-import scorex.transaction.account.{AccountTransaction, PrivateKeyAccount}
+import scorex.transaction.account.PrivateKeyAccount
 
 import scala.util.Random
 

@@ -9,12 +9,13 @@ import play.api.libs.json.Json
 import scorex.api.http.{ApiRoute, CommonApiFunctions, InvalidNotNumber}
 import scorex.app.Application
 import scorex.consensus.qora.QoraLikeConsensusModule
+import scorex.transaction.AccountTransaction
 
 import scala.util.Try
 
 @Path("/consensus")
 @Api(value = "/consensus", description = "Consensus-related calls")
-case class QoraConsensusApiRoute(override val application: Application)
+case class QoraConsensusApiRoute(override val application: Application[AccountTransaction])
                                 (implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 

@@ -8,14 +8,15 @@ import io.swagger.annotations._
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import scorex.app.Application
 import scorex.transaction.LagonakiTransaction.ValidationResult
-import scorex.transaction.SimpleTransactionModule
+import scorex.transaction.{AccountTransaction, SimpleTransactionModule}
+import scorex.transaction.account.Account
 import scorex.transaction.state.wallet.Payment
 
 import scala.util.Try
 
 @Path("/payment")
 @Api(value = "/payment", description = "Payment operations.", position = 1)
-case class PaymentApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
+case class PaymentApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   // TODO asInstanceOf

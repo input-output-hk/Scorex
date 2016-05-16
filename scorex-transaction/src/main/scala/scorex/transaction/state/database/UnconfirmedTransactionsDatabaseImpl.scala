@@ -1,7 +1,7 @@
 package scorex.transaction.state.database
 
 import com.google.common.primitives.Longs
-import scorex.transaction.account.AccountTransaction
+import scorex.transaction.AccountTransaction
 import scorex.utils.ScorexLogging
 
 import scala.collection.concurrent.TrieMap

@@ -11,14 +11,14 @@ import scorex.network._
 import scorex.network.message.{BasicMessagesRepo, MessageHandler, MessageSpec}
 import scorex.network.peer.PeerManager
 import scorex.settings.Settings
-import scorex.transaction.{BlockStorage, History, TransactionModule}
+import scorex.transaction.{Transaction, BlockStorage, History, TransactionModule}
 import scorex.utils.ScorexLogging
 import scorex.wallet.Wallet
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.runtime.universe.Type
 
-trait Application extends ScorexLogging {
+trait Application[TX <: Transaction[_]] extends ScorexLogging {
   val ApplicationNameLimit = 50
 
   val applicationName: String
@@ -29,8 +29,8 @@ trait Application extends ScorexLogging {
   implicit val settings: Settings
 
   //modules
-  implicit val consensusModule: ConsensusModule[_]
-  implicit val transactionModule: TransactionModule[_]
+  implicit val consensusModule: ConsensusModule[_, _, TX]
+  implicit val transactionModule: TransactionModule[_, TX]
 
   //api
   val apiRoutes: Seq[ApiRoute]
@@ -58,12 +58,12 @@ trait Application extends ScorexLogging {
   implicit lazy val wallet = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed)
 
   //interface to append log and state
-  lazy val blockStorage: BlockStorage = transactionModule.blockStorage
+  lazy val blockStorage: BlockStorage[TX] = transactionModule.blockStorage
 
-  lazy val history: History = blockStorage.history
+  lazy val history: History[TX] = blockStorage.history
 
-  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer], this), "HistorySynchronizer")
-  lazy val historyReplier = actorSystem.actorOf(Props(classOf[HistoryReplier], this), "HistoryReplier")
+  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer[TX]], this), "HistorySynchronizer")
+  lazy val historyReplier = actorSystem.actorOf(Props(classOf[HistoryReplier[TX]], this), "HistoryReplier")
 
 
   implicit val materializer = ActorMaterializer()

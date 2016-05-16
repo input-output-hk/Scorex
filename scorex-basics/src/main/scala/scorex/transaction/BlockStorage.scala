@@ -3,7 +3,7 @@ package scorex.transaction
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.crypto.encode.Base58
-import scorex.transaction.state.LagonakiState
+import scorex.transaction.state.{MinimalState, StateElement}
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Success, Try}
@@ -11,16 +11,16 @@ import scala.util.{Failure, Success, Try}
 /**
   * Storage interface combining both history(blockchain/blocktree) and state
   */
-trait BlockStorage extends ScorexLogging {
+trait BlockStorage[TX <: Transaction[_]] extends ScorexLogging {
 
   val MaxRollback: Int
 
-  val history: History
+  val history: History[TX]
 
-  def state: LagonakiState
+  def state: MinimalState[TX]
 
   //Append block to current state
-  def appendBlock(block: Block): Try[Unit] = synchronized {
+  def appendBlock(block: Block[TX]): Try[Unit] = synchronized {
     history.appendBlock(block).map { blocks =>
       blocks foreach { b =>
         state.processBlock(b) match {
@@ -38,7 +38,7 @@ trait BlockStorage extends ScorexLogging {
   //Should be used for linear blockchain only
   def removeAfter(signature: BlockId): Unit = synchronized {
     history match {
-      case h: BlockChain => h.heightOf(signature) match {
+      case h: BlockChain[TX] => h.heightOf(signature) match {
         case Some(height) =>
           while (!h.lastBlock.uniqueId.sameElements(signature)) h.discardBlock()
           state.rollbackTo(height)
@@ -60,9 +60,4 @@ object BlockStorage {
   case object Forward extends Direction
 
   case object Reversed extends Direction
-
-  /*
- * Block and direction to process it
- */
-  type BlocksToProcess = Seq[Block]
 }

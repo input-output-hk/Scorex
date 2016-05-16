@@ -8,7 +8,9 @@ import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.state.LagonakiState
+import scorex.transaction.AccountTransaction
+import scorex.transaction.account.Account
+import scorex.transaction.state.{AccountMinimalState, LagonakiState}
 
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.blockchain.StoredBlockchain
@@ -17,10 +19,11 @@ import scala.util.{Success, Try}
 
 @Path("/transactions")
 @Api(value = "/transactions", description = "Information about transactions")
-case class TransactionsApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
+case class TransactionsApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
-  private val state: LagonakiState = application.blockStorage.state
+  //todo: asInstanceOf, also ugly & dangerous casting
+  private val state: LagonakiState = application.blockStorage.state.asInstanceOf[LagonakiState]
 
   override lazy val route =
     pathPrefix("transactions") {
@@ -72,7 +75,7 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
             state.included(sig, None) match {
               case Some(h) =>
                 Try {
-                  val block = application.blockStorage.history.asInstanceOf[StoredBlockchain].blockAt(h).get
+                  val block = application.blockStorage.history.asInstanceOf[StoredBlockchain[AccountTransaction]].blockAt(h).get
                   val tx = block.transactions.filter(_.proof.bytes sameElements sig).head
                   tx.json
                 }.getOrElse(Json.obj("status" -> "error", "details" -> "Internal error"))
@@ -93,5 +96,4 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
       }
     }
   }
-
 }

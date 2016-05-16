@@ -10,11 +10,12 @@ import scorex.api.http.{ApiRoute, CommonApiFunctions}
 import scorex.app.Application
 import scorex.consensus.nxt.NxtLikeConsensusModule
 import scorex.crypto.encode.Base58
+import scorex.transaction.AccountTransaction
 
 
 @Path("/consensus")
 @Api(value = "/consensus", description = "Consensus-related calls")
-class NxtConsensusApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
+class NxtConsensusApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
   private val consensusModule = application.consensusModule.asInstanceOf[NxtLikeConsensusModule]

@@ -29,9 +29,9 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
   private val MinBlockTime = 1.minute.toSeconds
   private val MaxBlockTime = 5.minute.toSeconds
 
-  implicit val consensusModule: ConsensusModule[QoraLikeConsensusBlockData] = this
+  implicit val consensusModule: ConsensusModule[QoraLikeConsensusBlockData, Account, AccountTransaction] = this
 
-  def calculateSignature(prevBlock: Block, history: History, account: PrivateKeyAccount): Array[Byte] = {
+  def calculateSignature(prevBlock: Block[AccountTransaction], history: History[AccountTransaction], account: PrivateKeyAccount): Array[Byte] = {
     val gb = getNextBlockGeneratingBalance(prevBlock, history)
     val ref = consensusBlockData(prevBlock).generatorSignature
     calculateSignature(ref, gb, account)
@@ -61,9 +61,9 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     else if (generatingBalance > MaxBalance) MaxBalance
     else generatingBalance
 
-  private def blockGeneratingBalance(block: Block) = consensusBlockData(block).generatingBalance
+  private def blockGeneratingBalance(block: Block[AccountTransaction]) = consensusBlockData(block).generatingBalance
 
-  def getNextBlockGeneratingBalance(block: Block, history: History): Long = {
+  def getNextBlockGeneratingBalance(block: Block[AccountTransaction], history: History[AccountTransaction]): Long = {
     if (history.heightOf(block).get % ReTarget == 0) {
       //GET FIRST BLOCK OF TARGET
       val firstBlock = (1 to ReTarget - 1).foldLeft(block) { case (bl, _) =>
@@ -85,15 +85,15 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     } else blockGeneratingBalance(block)
   }
 
-  def getNextBlockGeneratingBalance(history: History): Long = {
+  def getNextBlockGeneratingBalance(history: History[AccountTransaction]): Long = {
     val lastBlock = history.lastBlock
     getNextBlockGeneratingBalance(lastBlock, history)
   }
 
-  override def generators(block: Block): Seq[Account] = Seq(block.signerDataField.value.generator)
+  override def generators(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
 
   override def generateNextBlock[TT](account: PrivateKeyAccount)
-                                    (implicit transactionModule: TransactionModule[TT]): Future[Option[Block]] = {
+                                    (implicit transactionModule: TransactionModule[TT, AccountTransaction]): Future[Option[Block[AccountTransaction]]] = {
     val version = 1: Byte
 
     val history = transactionModule.blockStorage.history
@@ -102,7 +102,7 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     require(state.isInstanceOf[AccountMinimalState with BalanceSheet])
     val generationBalance = state.asInstanceOf[AccountMinimalState with BalanceSheet].generationBalance(account)
     require(generationBalance > 0, "Zero generating balance in generateNextBlock")
-    require(history.isInstanceOf[BlockChain])
+    require(history.isInstanceOf[BlockChain[AccountTransaction]], "Only linear history is supported")
 
     val lastBlock = history.lastBlock
 
@@ -147,7 +147,7 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     })
   }
 
-  override def isValid[TT](block: Block)(implicit transactionModule: TransactionModule[TT]): Boolean = {
+  override def isValid[TT](block: Block[AccountTransaction])(implicit transactionModule: TransactionModule[TT, AccountTransaction]): Boolean = {
     val history = transactionModule.blockStorage.history
     val state = transactionModule.blockStorage.state
 
@@ -185,9 +185,9 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
   override def formBlockData(data: QoraLikeConsensusBlockData): BlockField[QoraLikeConsensusBlockData] =
     QoraConsensusBlockField(data)
 
-  override def blockScore(block: Block)(implicit transactionModule: TransactionModule[_]): BigInt = BigInt(1)
+  override def blockScore(block: Block[AccountTransaction])(implicit transactionModule: TransactionModule[_, AccountTransaction]): BigInt = BigInt(1)
 
-  override def consensusBlockData(block: Block): QoraLikeConsensusBlockData = block.consensusDataField.value match {
+  override def consensusBlockData(block: Block[AccountTransaction]): QoraLikeConsensusBlockData = block.consensusDataField.value match {
     case b: QoraLikeConsensusBlockData => b
     case m => throw new AssertionError(s"Only QoraLikeConsensusBlockData is available, $m given")
   }
