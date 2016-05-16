@@ -20,9 +20,9 @@ import scala.util.Try
   * Store transactions for selected accounts only.
   * If no filename provided, blockchain lives in RAM (intended for tests only).
   *
-  * Use apply method of StoredState object to create new instance
+  * Use apply method of PersistentLagonakiState object to create new instance
   */
-class StoredState(fileNameOpt: Option[String]) extends LagonakiState with ScorexLogging {
+class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState with ScorexLogging {
 
   val HeightKey = "height"
   val DataKey = "dataset"
@@ -66,7 +66,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     db.commit()
   }
 
-  override def rollbackTo(rollbackTo: Int): Try[StoredState] = Try {
+  override def rollbackTo(rollbackTo: Int): Try[PersistentLagonakiState] = Try {
     synchronized {
       def deleteNewer(key: Address): Unit = {
         val currentHeight = lastStates.get(key)
@@ -89,7 +89,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
   }
 
 
-  override def processBlock(block: Block): Try[StoredState] = Try {
+  override def processBlock(block: Block): Try[PersistentLagonakiState] = Try {
     val trans = block.transactions
     trans.foreach(t => if (included(t).isDefined) throw new Error(s"Transaction $t is already in state"))
     val fees: Map[Account, (AccState, Reason)] = block.consensusModule.feesDistribution(block)
@@ -104,7 +104,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     this
   }
 
-  private def calcNewBalances(trans: Seq[Transaction], fees: Map[Account, (AccState, Reason)]):
+  private def calcNewBalances(trans: Seq[Transaction[Account]], fees: Map[Account, (AccState, Reason)]):
   Map[Account, (AccState, Reason)] = {
     val newBalances: Map[Account, (AccState, Reason)] = trans.foldLeft(fees) { case (changes, atx) =>
       atx match {
@@ -166,7 +166,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
 
   //return seq of valid transactions
   @tailrec
-  override final def validate(trans: Seq[Transaction], heightOpt: Option[Int] = None): Seq[Transaction] = {
+  override final def validate(trans: Seq[AccountTransaction], heightOpt: Option[Int] = None): Seq[Transaction[Account]] = {
     val height = heightOpt.getOrElse(stateHeight)
     val txs = trans.filter(t => included(t).isEmpty && isValid(t, height))
     val nb = calcNewBalances(txs, Map.empty)
@@ -187,7 +187,7 @@ class StoredState(fileNameOpt: Option[String]) extends LagonakiState with Scorex
     else validTransactions
   }
 
-  private def isValid(transaction: Transaction, height: Int): Boolean = transaction match {
+  private def isValid(transaction: Transaction[Account], height: Int): Boolean = transaction match {
     case tx: PaymentTransaction =>
       tx.signatureValid && tx.validate == ValidationResult.ValidateOke && this.included(tx, Some(height)).isEmpty
     case gtx: GenesisTransaction =>
