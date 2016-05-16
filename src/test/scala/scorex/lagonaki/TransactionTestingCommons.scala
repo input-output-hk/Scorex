@@ -2,8 +2,8 @@ package scorex.lagonaki
 
 import scorex.block.Block
 import scorex.lagonaki.TestingCommons._
-import scorex.transaction.account.{Account, BalanceSheet}
-import scorex.transaction.{AccountTransaction, History, GenesisTransaction, Transaction}
+import scorex.transaction.account.BalanceSheet
+import scorex.transaction.{AccountTransaction, History, GenesisTransaction}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._

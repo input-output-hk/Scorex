@@ -60,7 +60,7 @@ class NetworkController(application: Application[_]) extends Actor with ScorexLo
         log.error("Declared address validation failed: ", t)
         false
       }.getOrElse(false)
-    }.getOrElse(true).ensuring(_ == true, "Declared address isn't valid")
+    }.getOrElse(true).ensuring(b => b, "Declared address isn't valid")
   }
 
   lazy val localAddress = new InetSocketAddress(InetAddress.getByName(settings.bindAddress), settings.port)

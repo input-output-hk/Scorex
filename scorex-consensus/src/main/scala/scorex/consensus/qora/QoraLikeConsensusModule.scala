@@ -100,6 +100,8 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     val state = transactionModule.blockStorage.state
 
     require(state.isInstanceOf[AccountMinimalState with BalanceSheet])
+
+    //todo: asInstanceOf
     val generationBalance = state.asInstanceOf[AccountMinimalState with BalanceSheet].generationBalance(account)
     require(generationBalance > 0, "Zero generating balance in generateNextBlock")
     require(history.isInstanceOf[BlockChain[AccountTransaction]], "Only linear history is supported")

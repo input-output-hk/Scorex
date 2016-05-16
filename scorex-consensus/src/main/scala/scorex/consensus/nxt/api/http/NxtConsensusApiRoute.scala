@@ -18,6 +18,7 @@ import scorex.transaction.AccountTransaction
 class NxtConsensusApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
+  //todo: asInstanceOf
   private val consensusModule = application.consensusModule.asInstanceOf[NxtLikeConsensusModule]
   private val blockStorage = application.blockStorage
 

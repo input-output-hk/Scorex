@@ -1,7 +1,6 @@
 package scorex.block
 
 import scorex.transaction.Transaction
-import scorex.transaction.state.StateElement
 import shapeless._
 
 

@@ -12,7 +12,7 @@ trait LagonakiConsensusModule[ConsensusBlockData] extends ConsensusModule[Consen
 
   /**
     * In Lagonaki, for both consensus modules, there's only one block generator
-    * @param block
+    * @param block - block to extract fees distribution from
     * @return
     */
   override def feesDistribution(block: Block[AccountTransaction]): Map[Account, Long] = {

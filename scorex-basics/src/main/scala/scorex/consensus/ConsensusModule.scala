@@ -1,7 +1,7 @@
 package scorex.consensus
 
 import scorex.block.{Block, BlockProcessingModule}
-import scorex.transaction.account.{Account, PrivateKeyAccount}
+import scorex.transaction.account.PrivateKeyAccount
 import scorex.transaction.state.StateElement
 import scorex.transaction.{Transaction, TransactionModule}
 
