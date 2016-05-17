@@ -4,20 +4,23 @@ import java.io.File
 
 import org.scalacheck.commands.Commands
 import org.scalacheck.{Gen, Prop}
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
+import org.scalatest.{Matchers, PropSpec}
 import scorex.lagonaki.mocks.BlockMock
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.state.database.blockchain.PersistentLagonakiState
-import scorex.transaction.{AccountTransaction, GenesisTransaction, PaymentTransaction, Transaction}
+import scorex.transaction.{AccountTransaction, GenesisTransaction, PaymentTransaction}
 import scorex.utils._
 
 import scala.util.{Random, Success, Try}
 
-object StateTest extends org.scalacheck.Properties("StateTest") {
 
-  property("state test") = StateTestSpec.property()
+class StateTest extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks with Matchers {
 
+  property("state test") {
+    StateTestSpec.property().mainRunner(Array()) shouldBe 0
+  }
 }
-
 
 object StateTestSpec extends Commands {
   val TestFolder = "target/test/"
