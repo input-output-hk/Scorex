@@ -146,7 +146,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
     case _ => 0L
   }
 
-  def totalBalance: Long = lastStates.keySet().map(add => balance(add)).sum
+  def totalBalance: Long = lastStates.keySet().toList.map(add => balance(add)).sum
 
   override def accountTransactions(account: Account): Array[LagonakiTransaction] = {
     Option(lastStates.get(account.address)) match {
