@@ -122,7 +122,7 @@ object StateTestSpec extends Commands {
 
   case class ValidateTransactions(txs: Seq[(AccountTransaction, Boolean)]) extends Command {
 
-    type Result = Seq[Transaction]
+    type Result = Seq[AccountTransaction]
 
     def run(sut: Sut) = sut.synchronized {
       sut.storedState.validate(txs.map(_._1))
