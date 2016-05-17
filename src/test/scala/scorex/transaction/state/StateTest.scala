@@ -14,7 +14,6 @@ import scorex.utils._
 
 import scala.util.{Random, Success, Try}
 
-
 class StateTest extends PropSpec with PropertyChecks with GeneratorDrivenPropertyChecks with Matchers {
 
   property("state test") {
