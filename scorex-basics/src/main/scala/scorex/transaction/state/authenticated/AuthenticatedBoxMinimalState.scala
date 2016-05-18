@@ -1,9 +1,10 @@
-package scorex.transaction.state
+package scorex.transaction.state.authenticated
 
 import scorex.crypto.authds.storage.StorageType
-import scorex.crypto.authds.{DataProof, AuthenticatedDictionary}
+import scorex.crypto.authds.{AuthenticatedDictionary, DataProof}
 import scorex.crypto.hash.CryptographicHash
 import scorex.transaction.box.Proposition
+import scorex.transaction.state.BoxMinimalState
 
 import scala.util.Try
 
