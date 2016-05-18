@@ -9,8 +9,7 @@ import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
 import scorex.transaction.AccountTransaction
-import scorex.transaction.account.Account
-import scorex.transaction.state.{AccountMinimalState, LagonakiState}
+import scorex.transaction.state.LagonakiState
 
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.blockchain.StoredBlockchain

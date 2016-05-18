@@ -11,7 +11,7 @@ import akka.http.scaladsl.server.{Directive0, Route}
 
 //see https://groups.google.com/forum/#!topic/akka-user/5RCZIJt7jHo
 trait CorsSupport {
-  
+
   //this directive adds access control headers to normal responses
   private def withAccessControlHeaders: Directive0 = {
     mapResponseHeaders { headers =>
@@ -31,7 +31,7 @@ trait CorsSupport {
     )
   }
 
-  def corsHandler(r: Route) = withAccessControlHeaders {
+  def corsHandler(r: Route): Route = withAccessControlHeaders {
     preflightRequestHandler ~ r
   }
 }

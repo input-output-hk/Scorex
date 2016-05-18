@@ -41,8 +41,8 @@ class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Arra
       def readSeed(limit: Int = Attempts): Array[Byte] = {
         println("Please type your wallet seed or type Enter to generate random one")
         val typed = scala.io.StdIn.readLine()
-        if (typed == "") {
-          println(s"You random generated seed is $encodedSeed")
+        if (typed.isEmpty) {
+          println(s"Your random generated seed is $encodedSeed")
           randomSeed
         } else
           Base58.decode(typed).getOrElse {
