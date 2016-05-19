@@ -3,7 +3,7 @@ package scorex.transaction.box
 import scorex.transaction.state.StateElement
 
 /**
-  * Box is a state element. Basically it is some value locked by some state machine.
+  * Box is a state element. Basically it is some value locked by some condition.
   */
 trait Box[L <: Proposition] extends StateElement {
   type Id

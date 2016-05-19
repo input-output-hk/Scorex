@@ -23,7 +23,7 @@ Features
 * Compact, functional code
 * Modular design
 * Scala language
-* Two 100% Proof-of-Stake consensus algos out of the box, Nxt-like and Qora-like. One algo could be replaced
+* Two 100% Proof-of-Stake consensus algos out of the closedBox, Nxt-like and Qora-like. One algo could be replaced
 with an another with just one line of code edited.
 * Additional consensus module Proof-of-Work consensus algo is available as [separate module](https://github.com/ScorexProject/Permacoin-consensus)
 * Simplest transactional model
