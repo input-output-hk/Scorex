@@ -10,6 +10,7 @@ sealed trait Proposition {
   final val bytes: Array[Byte] = Array(encodedType) ++ specificBytes
 }
 
+//todo: a_reserve
 sealed trait SigmaProposition extends Proposition {
   val a: Array[Byte]
 
