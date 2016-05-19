@@ -1,5 +1,6 @@
 package scorex.transaction.proof
 
 case object NoProof extends Proof {
-  override val bytes: Array[Byte] = Array()
+  override val proofId = 1: Byte
+  override val proofBytes: Array[Byte] = Array()
 }
