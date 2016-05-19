@@ -2,7 +2,7 @@ package scorex.transaction
 
 import play.api.libs.json.JsObject
 import scorex.transaction.account.Account
-import scorex.transaction.box.{Proposition, BoxUnlocker, Box}
+import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
 import scorex.transaction.proof.special.Signature25519
 import scorex.transaction.state.StateElement
 
@@ -22,8 +22,8 @@ sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason 
 }
 
 
-
 abstract class AccountTransaction extends Transaction[Account] {
+
   import scorex.transaction.proof.Proof
 
   val recipient: Account
@@ -42,5 +42,8 @@ abstract class BoxTransaction[Prop <: Proposition] extends Transaction[Box[Prop]
   val newBoxes: Seq[Box[Prop]]
 
   lazy val fee: Long = newBoxes.map(_.fee).sum
+
+  //todo: move to Transaction?
+  def messageToSign: Array[Byte]
 }
 
