@@ -11,9 +11,9 @@ sealed trait Proposition {
 }
 
 sealed trait SigmaProposition extends Proposition {
-  val x: Array[Byte]
+  val a: Array[Byte]
 
-  override val specificBytes = x
+  override val specificBytes = a
 }
 
 case class HeightOpenProposition(height: Int) extends Proposition {
