@@ -110,7 +110,7 @@ class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
   override def generatedBy(account: Account): Seq[Block[TX]] =
     (1 to height()).toStream.flatMap { h =>
       blockAt(h).flatMap { block =>
-        if (block.consensusModule.generators(block).contains(account)) Some(block) else None
+        if (block.consensusModule.producers(block).contains(account)) Some(block) else None
       }
     }
 

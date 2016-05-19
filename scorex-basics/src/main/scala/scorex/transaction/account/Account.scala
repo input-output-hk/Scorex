@@ -11,8 +11,8 @@ class Account(val address: String) extends StateElement with Serializable {
 
   override def toString: String = address
 
-  override def equals(b: Any): Boolean = b match {
-    case a: Account => a.address == address
+  override def equals(obj: Any): Boolean = obj match {
+    case acc: Account => acc.address == this.address
     case _ => false
   }
 

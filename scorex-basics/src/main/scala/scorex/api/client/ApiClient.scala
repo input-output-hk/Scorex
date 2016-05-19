@@ -11,6 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 
 class ApiClient(settings: Settings) {
+  private val OkHttpCode = 200
 
   def executeCommand(command: String): String = {
     if (command.equals("help")) {
@@ -36,7 +37,7 @@ class ApiClient(settings: Settings) {
       }
 
       val stream = connection.getResponseCode match {
-        case 200 => connection.getInputStream
+        case OkHttpCode => connection.getInputStream
         case _ => connection.getErrorStream
       }
 

@@ -18,10 +18,10 @@ trait LagonakiConsensusModule[ConsensusBlockData] extends ConsensusModule[Consen
   override def feesDistribution(block: Block[AccountTransaction]): Map[Account, Long] = {
     //todo: asInstanceOf, without exception catch!!!
     val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, Account, AccountTransaction]]
-    val forger = cm.generators(block).ensuring(_.size == 1).head
+    val forger = cm.producers(block).ensuring(_.size == 1).head
     val fee = block.transactions.map(_.fee).sum
     Map(forger -> fee)
   }
 
-  override def generators(block: Block[AccountTransaction]): Seq[Account]
+  override def producers(block: Block[AccountTransaction]): Seq[Account]
 }

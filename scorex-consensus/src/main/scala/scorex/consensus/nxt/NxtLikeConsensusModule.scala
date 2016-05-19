@@ -133,7 +133,7 @@ class NxtLikeConsensusModule(AvgDelay: Long = 5.seconds.toMillis)
     BigInt("18446744073709551616") / baseTarget
   }.ensuring(_ > 0)
 
-  override def generators(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
+  override def producers(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
 
   override def genesisData: BlockField[NxtLikeConsensusBlockData] =
     NxtConsensusBlockField(new NxtLikeConsensusBlockData {

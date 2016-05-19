@@ -25,7 +25,7 @@ trait ConsensusModule[ConsensusBlockData, SE <: StateElement, TX <: Transaction[
     * @param block
     * @return
     */
-  def generators(block: Block[TX]): Seq[SE]
+  def producers(block: Block[TX]): Seq[SE]
 
   def blockScore(block: Block[TX])(implicit transactionModule: TransactionModule[_, TX]): BigInt
 

@@ -90,7 +90,7 @@ class QoraLikeConsensusModule extends LagonakiConsensusModule[QoraLikeConsensusB
     getNextBlockGeneratingBalance(lastBlock, history)
   }
 
-  override def generators(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
+  override def producers(block: Block[AccountTransaction]): Seq[Account] = Seq(block.signerDataField.value.generator)
 
   override def generateNextBlock[TT](account: PrivateKeyAccount)
                                     (implicit transactionModule: TransactionModule[TT, AccountTransaction]): Future[Option[Block[AccountTransaction]]] = {

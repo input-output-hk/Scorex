@@ -218,7 +218,7 @@ class StoredBlockTree[TX <: Transaction[_]](dataFolderOpt: Option[String], MaxRo
   override def blockById(blockId: BlockId): Option[Block[TX]] = blockStorage.readBlock(blockId).map(_._1)
 
   override def generatedBy(account: Account): Seq[Block[TX]] = blockStorage.filter { b =>
-    consensusModule.generators(b).contains(account)
+    consensusModule.producers(b).contains(account)
   }.map(_._1)
 
   override def lastBlock: Block[TX] = blockStorage.bestBlock.map(_._1).get
