@@ -7,9 +7,9 @@ package scorex.transaction.proof
 
 trait Proof {
 
-  val proofId: Byte
+  def proofId: Byte
 
-  val proofBytes: Array[Byte]
+  def proofBytes: Array[Byte]
 
   /**
     * The proof is non-interactive and thus serializable
