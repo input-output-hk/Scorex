@@ -8,7 +8,7 @@ import scorex.transaction.state.BoxMinimalState
 
 import scala.util.Try
 
-//for now only boxed state could be Merkelized
+//for now only boxed state could be authenticated
 trait AuthenticatedBoxMinimalState[L <: Proposition, HashFunction <: CryptographicHash]
   extends BoxMinimalState[L] {
 
