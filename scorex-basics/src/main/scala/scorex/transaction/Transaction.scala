@@ -19,6 +19,8 @@ sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason 
     * A transaction could be serialized into JSON
     */
   def json: JsObject
+
+  def messageToSign: Array[Byte] = ???
 }
 
 
@@ -42,8 +44,5 @@ abstract class BoxTransaction[Prop <: Proposition] extends Transaction[Box[Prop]
   val newBoxes: Seq[Box[Prop]]
 
   lazy val fee: Long = newBoxes.map(_.fee).sum
-
-  //todo: move to Transaction?
-  def messageToSign: Array[Byte]
 }
 
