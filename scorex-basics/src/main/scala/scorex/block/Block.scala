@@ -5,7 +5,7 @@ import play.api.libs.json.Json
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.serialization.Deser
+import scorex.serialization.BytesParseable
 import scorex.transaction.account.{PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
@@ -112,7 +112,7 @@ object Block extends ScorexLogging {
 
   val BlockIdLength = EllipticCurveImpl.SignatureLength
 
-  //TODO Deser[Block] ??
+  //TODO BytesParseable[Block] ??
   def parseBytes[CDT, TDT, TX <: Transaction[_]](bytes: Array[Byte])
                           (implicit consModule: ConsensusModule[CDT, _, TX],
                       transModule: TransactionModule[TDT, TX]): Try[Block[TX]] = Try {

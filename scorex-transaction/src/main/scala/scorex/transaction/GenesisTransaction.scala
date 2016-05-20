@@ -7,7 +7,7 @@ import play.api.libs.json.{JsObject, Json}
 import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
-import scorex.serialization.Deser
+import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
 
 import scala.util.Try
@@ -67,7 +67,7 @@ case class GenesisTransaction(override val recipient: Account,
 }
 
 
-object GenesisTransaction extends Deser[GenesisTransaction] {
+object GenesisTransaction extends BytesParseable[GenesisTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 

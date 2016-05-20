@@ -1,6 +1,6 @@
 package scorex.block
 
-import scorex.serialization.Deser
+import scorex.serialization.BytesParseable
 
 import scala.util.Try
 
@@ -8,7 +8,7 @@ import scala.util.Try
   * A generic interface with functionality to convert data into a part of a block and vice versa
   */
 
-trait BlockProcessingModule[BlockPartDataType] extends Deser[BlockField[BlockPartDataType]] {
+trait BlockProcessingModule[BlockPartDataType] extends BytesParseable[BlockField[BlockPartDataType]] {
   def parseBytes(bytes: Array[Byte]): Try[BlockField[BlockPartDataType]]
 
   def parseBlockFields(blockFields: BlockField[BlockPartDataType]): BlockPartDataType = blockFields.value

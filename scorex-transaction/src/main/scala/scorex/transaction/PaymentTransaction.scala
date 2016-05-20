@@ -7,7 +7,7 @@ import play.api.libs.json.{JsObject, Json}
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.serialization.Deser
+import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
 
 import scala.util.Try
@@ -76,7 +76,7 @@ case class PaymentTransaction(sender: PublicKeyAccount,
     Seq((sender, -amount - fee), (recipient, amount))
 }
 
-object PaymentTransaction extends Deser[PaymentTransaction] {
+object PaymentTransaction extends BytesParseable[PaymentTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 

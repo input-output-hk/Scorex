@@ -5,7 +5,7 @@ import play.api.libs.json.Json
 import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 
-import scorex.serialization.{BytesSerializable, Deser}
+import scorex.serialization.{BytesSerializable, BytesParseable}
 import scorex.transaction.LagonakiTransaction.TransactionType
 
 import scala.concurrent.duration._
@@ -62,7 +62,7 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
   }
 }
 
-object LagonakiTransaction extends Deser[LagonakiTransaction] {
+object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
 
   val MaxBytesPerToken = 512
 

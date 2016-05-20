@@ -4,7 +4,7 @@ import java.net.{InetAddress, InetSocketAddress}
 
 import com.google.common.primitives.{Ints, Longs}
 import scorex.app.ApplicationVersion
-import scorex.serialization.{BytesSerializable, Deser}
+import scorex.serialization.{BytesSerializable, BytesParseable}
 import scorex.utils.ScorexLogging
 
 import scala.util.Try
@@ -39,7 +39,7 @@ case class Handshake(applicationName: String,
   }
 }
 
-object Handshake extends ScorexLogging with Deser[Handshake] {
+object Handshake extends ScorexLogging with BytesParseable[Handshake] {
   def parseBytes(bytes: Array[Byte]): Try[Handshake] = Try {
     var position = 0
     val appNameSize = bytes.head
