@@ -5,6 +5,7 @@ import play.api.libs.json.Json
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
+import scorex.serialization.Deser
 import scorex.transaction.account.{PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
@@ -111,7 +112,10 @@ object Block extends ScorexLogging {
 
   val BlockIdLength = EllipticCurveImpl.SignatureLength
 
-  def parse[CDT, TDT, TX <: Transaction[_]](bytes: Array[Byte])(implicit consModule: ConsensusModule[CDT, _, TX], transModule: TransactionModule[TDT, TX]): Try[Block[TX]] = Try {
+  //TODO Deser[Block] ??
+  def parseBytes[CDT, TDT, TX <: Transaction[_]](bytes: Array[Byte])
+                          (implicit consModule: ConsensusModule[CDT, _, TX],
+                      transModule: TransactionModule[TDT, TX]): Try[Block[TX]] = Try {
 
     val version = bytes.head
 
@@ -126,13 +130,13 @@ object Block extends ScorexLogging {
     val cBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
     position += 4
     val cBytes = bytes.slice(position, position + cBytesLength)
-    val consBlockField = consModule.parseBlockData(cBytes).get
+    val consBlockField = consModule.parseBytes(cBytes).get
     position += cBytesLength
 
     val tBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
     position += 4
     val tBytes = bytes.slice(position, position + tBytesLength)
-    val txBlockField = transModule.parseBlockData(tBytes).get
+    val txBlockField = transModule.parseBytes(tBytes).get
     position += tBytesLength
 
     val genPK = bytes.slice(position, position + EllipticCurveImpl.KeyLength)

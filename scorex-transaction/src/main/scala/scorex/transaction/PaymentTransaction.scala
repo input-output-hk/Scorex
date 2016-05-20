@@ -7,7 +7,10 @@ import play.api.libs.json.{JsObject, Json}
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
+import scorex.serialization.Deser
 import scorex.transaction.LagonakiTransaction.TransactionType
+
+import scala.util.Try
 
 case class PaymentTransaction(sender: PublicKeyAccount,
                               override val recipient: Account,
@@ -15,8 +18,7 @@ case class PaymentTransaction(sender: PublicKeyAccount,
                               override val fee: Long,
                               override val timestamp: Long,
                               override val signature: Array[Byte])
-  extends LagonakiTransaction(TransactionType.PaymentTransaction, recipient, amount, fee, timestamp, signature)
-    with Serializable {
+  extends LagonakiTransaction(TransactionType.PaymentTransaction, recipient, amount, fee, timestamp, signature) {
 
   import scorex.transaction.LagonakiTransaction._
   import scorex.transaction.PaymentTransaction._
@@ -74,7 +76,7 @@ case class PaymentTransaction(sender: PublicKeyAccount,
     Seq((sender, -amount - fee), (recipient, amount))
 }
 
-object PaymentTransaction {
+object PaymentTransaction extends Deser[PaymentTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 
@@ -89,7 +91,7 @@ object PaymentTransaction {
     PaymentTransaction(sender, recipient, amount, fee, timestamp, sig)
   }
 
-  private[transaction] def parse(data: Array[Byte]) = {
+  def parseBytes(data: Array[Byte]): Try[PaymentTransaction] = Try {
     require(data.length >= BaseLength, "Data does not match base length")
 
     var position = 0

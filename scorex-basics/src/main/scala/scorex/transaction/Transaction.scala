@@ -5,12 +5,14 @@ import scorex.transaction.account.Account
 import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
 import scorex.transaction.proof.special.Signature25519
 import scorex.transaction.state.StateElement
+import scorex.serialization.JsonSerializable
+
 
 /**
   * A transaction is an atomic state modifier
   */
 
-sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason {
+sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason with JsonSerializable {
   val fee: Long
 
   val timestamp: Long

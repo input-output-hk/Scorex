@@ -15,7 +15,7 @@ object TransactionalMessagesRepo {
     override val messageName: String = "Transaction message"
 
     override def deserializeData(bytes: Array[MessageCode]): Try[Transaction[_ <: StateElement]] =
-      LagonakiTransaction.parse(bytes)
+      LagonakiTransaction.parseBytes(bytes)
 
     override def serializeData(tx: Transaction[_ <: StateElement]): Array[MessageCode] = tx.bytes
   }

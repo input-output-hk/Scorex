@@ -36,7 +36,7 @@ class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
     }
 
     def readBlock(height: Int): Option[Block[TX]] =
-      Try(Option(blocks.get(height))).toOption.flatten.flatMap(b => Block.parse(b).toOption)
+      Try(Option(blocks.get(height))).toOption.flatten.flatMap(b => Block.parseBytes(b).toOption)
 
     def deleteBlock(height: Int): Unit = {
       blocks.remove(height)

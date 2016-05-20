@@ -5,9 +5,10 @@ import java.nio.ByteBuffer
 import com.google.common.primitives.{Ints, Longs}
 import org.h2.mvstore.WriteBuffer
 import org.h2.mvstore.`type`.DataType
+import scorex.serialization.BytesSerializable
 import scorex.transaction.{FeesStateChange, LagonakiTransaction, StateChangeReason}
 
-case class Row(state: AccState, reason: Reason, lastRowHeight: Int) extends DataType with Serializable {
+case class Row(state: AccState, reason: Reason, lastRowHeight: Int) extends DataType with BytesSerializable {
 
   lazy val bytes: Array[Byte] = Ints.toByteArray(lastRowHeight) ++
     Longs.toByteArray(state.balance) ++
@@ -57,7 +58,7 @@ object Row {
       val tx = new Array[Byte](txSize)
       b.get(tx)
       if (txSize == 8) FeesStateChange(Longs.fromByteArray(tx))
-      else LagonakiTransaction.parse(tx).get //todo: .get w/out catching
+      else LagonakiTransaction.parseBytes(tx).get //todo: .get w/out catching
     }
     Row(AccState(accBalance), reason.toList, lrh)
   }

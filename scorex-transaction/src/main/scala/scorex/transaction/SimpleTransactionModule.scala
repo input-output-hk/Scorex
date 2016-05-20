@@ -51,12 +51,12 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   }
 
   /**
-   * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
-   *
-   * @param bytes - serialized sequence of transaction
-   * @return
-   */
-  override def parseBlockData(bytes: Array[Byte]): Try[TransactionsBlockField] = Try {
+    * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
+    *
+    * @param bytes - serialized sequence of transaction
+    * @return
+    */
+  override def parseBytes(bytes: Array[Byte]): Try[TransactionsBlockField] = Try {
     bytes.isEmpty match {
       case true => TransactionsBlockField(Seq())
       case false =>
@@ -66,7 +66,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
           val transactionLengthBytes = txData.slice(pos, pos + TransactionSizeLength)
           val transactionLength = Ints.fromByteArray(transactionLengthBytes)
           val transactionBytes = txData.slice(pos + TransactionSizeLength, pos + TransactionSizeLength + transactionLength)
-          val transaction = LagonakiTransaction.parse(transactionBytes).get
+          val transaction = LagonakiTransaction.parseBytes(transactionBytes).get
 
           (pos + TransactionSizeLength + transactionLength, txs :+ transaction)
         }._2)

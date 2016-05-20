@@ -1,11 +1,16 @@
 package scorex.transaction
 
+import java.math.BigInteger
+
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
 import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
+import scorex.serialization.Deser
 import scorex.transaction.LagonakiTransaction.TransactionType
+
+import scala.util.Try
 
 
 case class GenesisTransaction(override val recipient: Account,
@@ -62,17 +67,17 @@ case class GenesisTransaction(override val recipient: Account,
 }
 
 
-object GenesisTransaction {
+object GenesisTransaction extends Deser[GenesisTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 
   private val RECIPIENT_LENGTH = Account.AddressLength
   private val BASE_LENGTH = TimestampLength + RECIPIENT_LENGTH + AmountLength
 
-  def generateSignature(recipient: Account, amount: BigDecimal, timestamp: Long): Array[Byte] = {
+  def generateSignature(recipient: Account, amount: Long, timestamp: Long): Array[Byte] = {
     val typeBytes = Bytes.ensureCapacity(Ints.toByteArray(TransactionType.GenesisTransaction.id), TypeLength, 0)
     val timestampBytes = Bytes.ensureCapacity(Longs.toByteArray(timestamp), TimestampLength, 0)
-    val amountBytes = amount.bigDecimal.unscaledValue().toByteArray
+    val amountBytes = Longs.toByteArray(amount)
     val amountFill = new Array[Byte](AmountLength - amountBytes.length)
 
     val data = Bytes.concat(typeBytes, timestampBytes,
@@ -82,7 +87,7 @@ object GenesisTransaction {
     Bytes.concat(h, h)
   }
 
-  private[transaction] def parse(data: Array[Byte]): LagonakiTransaction = {
+  def parseBytes(data: Array[Byte]): Try[GenesisTransaction] = Try {
     require(data.length >= BASE_LENGTH, "Data does not match base length")
 
     var position = 0
