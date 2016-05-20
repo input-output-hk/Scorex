@@ -19,8 +19,8 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 
-class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application[AccountTransaction])
-  extends TransactionModule[StoredInBlock, AccountTransaction] with ScorexLogging {
+class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application[LagonakiTransaction])
+  extends TransactionModule[StoredInBlock, LagonakiTransaction] with ScorexLogging {
 
   import SimpleTransactionModule._
 
@@ -32,11 +32,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   private val instance = this
 
-  override val blockStorage = new BlockStorage[AccountTransaction] {
+  override val blockStorage = new BlockStorage[LagonakiTransaction] {
 
     override val MaxRollback: Int = settings.MaxRollback
 
-    override val history: History[AccountTransaction] = settings.history match {
+    override val history: History[LagonakiTransaction] = settings.history match {
       case s: String if s.equalsIgnoreCase("blockchain") =>
         new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
       case s: String if s.equalsIgnoreCase("blocktree") =>
@@ -62,7 +62,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
       case false =>
         val txData = bytes.tail
         val txCount = bytes.head // so 255 txs max
-        formBlockData((1 to txCount).foldLeft((0: Int, Seq[AccountTransaction]())) { case ((pos, txs), _) =>
+        formBlockData((1 to txCount).foldLeft((0: Int, Seq[LagonakiTransaction]())) { case ((pos, txs), _) =>
           val transactionLengthBytes = txData.slice(pos, pos + TransactionSizeLength)
           val transactionLength = Ints.fromByteArray(transactionLengthBytes)
           val transactionBytes = txData.slice(pos + TransactionSizeLength, pos + TransactionSizeLength + transactionLength)
@@ -76,7 +76,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   override def formBlockData(transactions: StoredInBlock): TransactionsBlockField = TransactionsBlockField(transactions)
 
   //TODO asInstanceOf
-  override def transactions(block: Block[AccountTransaction]): StoredInBlock =
+  override def transactions(block: Block[LagonakiTransaction]): StoredInBlock =
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
@@ -100,7 +100,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     txs.diff(blockStorage.state.validate(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
   }
 
-  override def onNewOffchainTransaction(transaction: AccountTransaction): Unit = transaction match {
+  override def onNewOffchainTransaction(transaction: LagonakiTransaction): Unit = transaction match {
     case tx: LagonakiTransaction =>
       if (UnconfirmedTransactionsDatabaseImpl.putIfNew(tx)) {
         val spec = TransactionalMessagesRepo.TransactionMessageSpec
@@ -148,7 +148,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   }
 
   //todo: safe casting from shapeless?
-  override def isValid(block: Block[AccountTransaction]): Boolean = {
+  override def isValid(block: Block[LagonakiTransaction]): Boolean = {
     block.transactions match {
       case transactions: Seq[LagonakiTransaction] =>
         blockStorage.state.areValid(transactions, blockStorage.history.heightOf(block))
@@ -158,7 +158,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 }
 
 object SimpleTransactionModule {
-  type StoredInBlock = Seq[AccountTransaction]
+  type StoredInBlock = Seq[LagonakiTransaction]
 
   val MaxTimeForUnconfirmed = 1.hour
   val MaxTransactionsPerBlock = 100

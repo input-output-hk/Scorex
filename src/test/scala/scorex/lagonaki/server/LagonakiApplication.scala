@@ -11,7 +11,7 @@ import scorex.transaction._
 
 import scala.reflect.runtime.universe._
 
-class LagonakiApplication(val settingsFilename: String) extends Application[AccountTransaction] {
+class LagonakiApplication(val settingsFilename: String) extends Application[LagonakiTransaction] {
 
   override val applicationName = "lagonaki"
 
@@ -47,7 +47,7 @@ class LagonakiApplication(val settingsFilename: String) extends Application[Acco
   override lazy val apiTypes = Seq(
     typeOf[BlocksApiRoute[AccountTransaction]],
     typeOf[TransactionsApiRoute],
-    typeOf[NxtConsensusApiRoute],
+    typeOf[NxtConsensusApiRoute[AccountTransaction]],
     typeOf[WalletApiRoute],
     typeOf[PaymentApiRoute],
     typeOf[UtilsApiRoute],

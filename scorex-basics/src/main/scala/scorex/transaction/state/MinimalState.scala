@@ -24,17 +24,17 @@ sealed trait MinimalState[TX <: Transaction[_]] {
 }
 
 
-trait AccountMinimalState extends MinimalState[AccountTransaction] {
+trait AccountMinimalState[ATX <: AccountTransaction] extends MinimalState[ATX] {
 
-  override def validate(txs: Seq[AccountTransaction], height: Option[Int] = None): Seq[AccountTransaction]
+  override def validate(txs: Seq[ATX], height: Option[Int] = None): Seq[ATX]
 
-  override def isValid(tx: AccountTransaction): Boolean = areValid(Seq(tx))
+  override def isValid(tx: ATX): Boolean = areValid(Seq(tx))
 
-  override def areValid(txs: Seq[AccountTransaction], height: Option[Int] = None): Boolean = validate(txs, height).size == txs.size
+  override def areValid(txs: Seq[ATX], height: Option[Int] = None): Boolean = validate(txs, height).size == txs.size
 
   def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]
 
-  def included(transaction: AccountTransaction, heightOpt: Option[Int] = None): Option[Int] =
+  def included(transaction: ATX, heightOpt: Option[Int] = None): Option[Int] =
     included(transaction.proof.bytes, heightOpt)
 }
 

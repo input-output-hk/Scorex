@@ -10,11 +10,9 @@ import scorex.transaction.proof.Proof
   * @param signature 25519 signature
   */
 case class Signature25519(signature: Array[Byte]) extends Proof {
-  override def proofId: Byte = ???
+  override def proofId: Byte = 100: Byte
 
-  override def proofBytes: Array[Byte] = ???
-
-  override lazy val bytes: Array[Byte] = signature
+  override def proofBytes: Array[Byte] = signature
 }
 
 object Signature25519 {

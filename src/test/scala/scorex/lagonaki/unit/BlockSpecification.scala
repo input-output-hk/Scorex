@@ -15,8 +15,9 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
   import TestingCommons._
 
   test("Nxt block with txs bytes/parse roundtrip") {
-    implicit val consensusModule = new NxtLikeConsensusModule()
-    implicit val transactionModule = new SimpleTransactionModule()(application.settings, application)
+    implicit val consensusModule = new NxtLikeConsensusModule[LagonakiTransaction]()
+    implicit val transactionModule: TransactionModule[Seq[LagonakiTransaction], LagonakiTransaction]
+      = new SimpleTransactionModule()(application.settings, application)
 
     val reference = Array.fill(Block.BlockIdLength)(Random.nextInt(100).toByte)
     val gen = new PrivateKeyAccount(reference)
@@ -27,7 +28,7 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val sender = new PrivateKeyAccount(reference.dropRight(2))
     val tx = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
 
-    val tbd: Seq[AccountTransaction] = Seq(tx)
+    val tbd: Seq[LagonakiTransaction] = Seq(tx)
     val cbd = new NxtLikeConsensusBlockData {
       override val generationSignature: Array[Byte] = gs
       override val baseTarget: Long = bt
@@ -45,7 +46,7 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
   }
 
   test("Qora block with txs bytes/parse roundtrip") {
-    implicit val consensusModule = new QoraLikeConsensusModule()
+    implicit val consensusModule = new QoraLikeConsensusModule[LagonakiTransaction]()
     implicit val transactionModule = new SimpleTransactionModule()(application.settings, application)
 
     val reference = Array.fill(Block.BlockIdLength)(Random.nextInt(100).toByte)
@@ -57,7 +58,7 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val sender = new PrivateKeyAccount(reference.dropRight(2))
     val tx = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
 
-    val tbd: Seq[AccountTransaction] = Seq(tx)
+    val tbd: Seq[LagonakiTransaction] = Seq(tx)
     val cbd = new QoraLikeConsensusBlockData {
       override val generatorSignature: Array[Byte] = gs
       override val generatingBalance: Long = gb

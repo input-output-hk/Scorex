@@ -1,7 +1,6 @@
 package scorex.transaction
 
 import scorex.serialization.BytesSerializable
-
 import scorex.transaction.proof.Proof
 
 /**
@@ -11,7 +10,12 @@ trait StateChangeReason extends BytesSerializable {
   /**
     * A reason could be serialized into a binary form
     */
-  val bytes: Array[Byte]
+
+  def messageToSign: Array[Byte]
 
   val proof: Proof
+
+  lazy val bytes: Array[Byte] = messageToSign ++ proof.bytes
+
+  def correctAuthorship: Boolean
 }

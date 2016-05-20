@@ -3,7 +3,7 @@ package scorex.lagonaki
 import scorex.block.Block
 import scorex.lagonaki.TestingCommons._
 import scorex.transaction.account.BalanceSheet
-import scorex.transaction.{AccountTransaction, History, GenesisTransaction}
+import scorex.transaction.{LagonakiTransaction, AccountTransaction, History, GenesisTransaction}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -23,9 +23,9 @@ trait TransactionTestingCommons extends TestingCommons {
   val ab = accounts.map(a => transactionModule.blockStorage.state.asInstanceOf[BalanceSheet].generationBalance(a)).sum
   require(ab > 2)
 
-  def genValidBlock(): Block[AccountTransaction] = {
+  def genValidBlock(): Block[LagonakiTransaction] = {
     Await.result(consensusModule.generateNextBlocks(accounts)(transactionModule), 10.seconds).headOption match {
-      case Some(block: Block[AccountTransaction]) if block.isValid => block
+      case Some(block: Block[LagonakiTransaction]) if block.isValid => block
       case None =>
         Thread.sleep(500)
         genValidBlock()
@@ -37,7 +37,7 @@ trait TransactionTestingCommons extends TestingCommons {
     case _ => None
   })
 
-  def genValidTransaction(randomAmnt: Boolean = true): AccountTransaction = {
+  def genValidTransaction(randomAmnt: Boolean = true): LagonakiTransaction = {
     val senderAcc = accounts(Random.nextInt(accounts.size))
     val senderBalance = transactionModule.blockStorage.state.asInstanceOf[BalanceSheet].generationBalance(senderAcc)
     val fee = Random.nextInt(5).toLong + 1
@@ -52,7 +52,7 @@ trait TransactionTestingCommons extends TestingCommons {
     }
   }
 
-  def includedTransactions(b: Block[AccountTransaction], history: History[AccountTransaction]): Seq[AccountTransaction] = {
+  def includedTransactions(b: Block[LagonakiTransaction], history: History[LagonakiTransaction]): Seq[LagonakiTransaction] = {
     if (b.transactions.isEmpty) includedTransactions(history.parent(b).get, history)
     else b.transactions
   }

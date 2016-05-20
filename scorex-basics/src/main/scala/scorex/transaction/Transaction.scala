@@ -3,7 +3,6 @@ package scorex.transaction
 import play.api.libs.json.JsObject
 import scorex.transaction.account.Account
 import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
-import scorex.transaction.proof.special.Signature25519
 import scorex.transaction.state.StateElement
 import scorex.serialization.JsonSerializable
 
@@ -13,7 +12,7 @@ import scorex.serialization.JsonSerializable
   */
 
 sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason with JsonSerializable {
-  val fee: Long
+  def fee: Long
 
   val timestamp: Long
 
@@ -21,19 +20,12 @@ sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason 
     * A transaction could be serialized into JSON
     */
   def json: JsObject
-
-  def messageToSign: Array[Byte] = ???
 }
 
 
 abstract class AccountTransaction extends Transaction[Account] {
-
-  import scorex.transaction.proof.Proof
-
+  val sender: Option[Account]
   val recipient: Account
-  val signature: Array[Byte]
-
-  override lazy val proof: Proof = Signature25519(signature)
 }
 
 /**

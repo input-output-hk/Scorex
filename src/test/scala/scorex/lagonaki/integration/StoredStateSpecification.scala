@@ -31,7 +31,6 @@ class StoredStateSpecification extends FunSuite with Matchers with BeforeAndAfte
     state.balance(testAdd) shouldBe 2
     state.included(tx).value shouldBe state.stateHeight
     state invokePrivate applyMethod(Map(testAdd ->(AccState(0L), Seq(tx))))
-
   }
 
 

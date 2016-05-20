@@ -12,7 +12,7 @@ import scorex.transaction.LagonakiTransaction.TransactionType
 
 import scala.util.Try
 
-case class PaymentTransaction(sender: PublicKeyAccount,
+case class PaymentTransaction(paymentSender: PublicKeyAccount,
                               override val recipient: Account,
                               override val amount: Long,
                               override val fee: Long,
@@ -25,29 +25,29 @@ case class PaymentTransaction(sender: PublicKeyAccount,
 
   override lazy val dataLength = TypeLength + BaseLength
 
-  override lazy val creator = Some(sender)
+  override lazy val sender = Some(paymentSender)
 
   override lazy val json: JsObject = jsonBase() ++ Json.obj(
-    "sender" -> sender.address,
+    "sender" -> paymentSender.address,
     "recipient" -> recipient.address,
     "amount" -> amount
   )
 
-  override lazy val bytes: Array[Byte] = {
+  override lazy val messageToSign: Array[Byte] = {
     val typeBytes = Array(TypeId.toByte)
 
     val timestampBytes = Longs.toByteArray(timestamp)
     val amountBytes = Longs.toByteArray(amount)
     val feeBytes = Longs.toByteArray(fee)
 
-    Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
+    Bytes.concat(typeBytes, timestampBytes, paymentSender.publicKey,
       Base58.decode(recipient.address).get, amountBytes,
-      feeBytes, signature)
+      feeBytes)
   }
 
-  override lazy val signatureValid: Boolean = {
-    val data = signatureData(sender, recipient, amount, fee, timestamp)
-    EllipticCurveImpl.verify(signature, data, sender.publicKey)
+  override lazy val correctAuthorship: Boolean = {
+    val data = signatureData(paymentSender, recipient, amount, fee, timestamp)
+    EllipticCurveImpl.verify(signature, data, paymentSender.publicKey)
   }
 
   override def validate: ValidationResult.Value =
@@ -63,9 +63,9 @@ case class PaymentTransaction(sender: PublicKeyAccount,
   override def involvedAmount(account: Account): Long = {
     val address = account.address
 
-    if (address.equals(sender.address) && address.equals(recipient.address)) {
+    if (address.equals(paymentSender.address) && address.equals(recipient.address)) {
       -fee
-    } else if (address.equals(sender.address)) {
+    } else if (address.equals(paymentSender.address)) {
       -amount - fee
     } else if (address.equals(recipient.address)) {
       amount
@@ -73,7 +73,7 @@ case class PaymentTransaction(sender: PublicKeyAccount,
   }
 
   override def balanceChanges(): Seq[(Account, Long)] =
-    Seq((sender, -amount - fee), (recipient, amount))
+    Seq((paymentSender, -amount - fee), (recipient, amount))
 }
 
 object PaymentTransaction extends BytesParseable[PaymentTransaction] {

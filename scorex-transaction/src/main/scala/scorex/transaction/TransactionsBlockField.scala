@@ -5,8 +5,8 @@ import play.api.libs.json.{Json, JsObject}
 import scorex.block.BlockField
 
 
-case class TransactionsBlockField(override val value: Seq[AccountTransaction])
-  extends BlockField[Seq[AccountTransaction]] {
+case class TransactionsBlockField(override val value: Seq[LagonakiTransaction])
+  extends BlockField[Seq[LagonakiTransaction]] {
 
   import SimpleTransactionModule.MaxTransactionsPerBlock
 

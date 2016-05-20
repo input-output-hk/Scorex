@@ -90,11 +90,11 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
   }
 
 
-  override def processBlock(block: Block[AccountTransaction]): Try[PersistentLagonakiState] = Try {
+  override def processBlock(block: Block[LagonakiTransaction]): Try[PersistentLagonakiState] = Try {
     val trans = block.transactions
 
     //todo: asInstanceOf?
-    val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, Account, AccountTransaction]]
+    val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, Account, LagonakiTransaction]]
 
     trans.foreach(t => if (included(t).isDefined) throw new Error(s"Transaction $t is already in state"))
     val fees: Map[Account, (AccState, Reason)] = cm.feesDistribution(block)
@@ -171,14 +171,14 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
 
   //return seq of valid transactions
   @tailrec
-  override final def validate(trans: Seq[AccountTransaction], heightOpt: Option[Int] = None): Seq[AccountTransaction] = {
+  override final def validate(trans: Seq[LagonakiTransaction], heightOpt: Option[Int] = None): Seq[LagonakiTransaction] = {
     val height = heightOpt.getOrElse(stateHeight)
     val txs = trans.filter(t => included(t).isEmpty && isValid(t, height))
     val nb = calcNewBalances(txs, Map.empty)
     val negativeBalances: Map[Account, (AccState, Reason)] = nb.filter(b => b._2._1.balance < 0)
     val toRemove = negativeBalances flatMap { b =>
       val accTransactions = trans.filter(_.isInstanceOf[PaymentTransaction]).map(_.asInstanceOf[PaymentTransaction])
-        .filter(_.sender.address == b._1.address)
+        .filter(_.paymentSender.address == b._1.address)
       var sumBalance = b._2._1.balance
       accTransactions.sortBy(-_.amount).takeWhile { t =>
         val prevSum = sumBalance
@@ -194,7 +194,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
 
   private def isValid(transaction: Transaction[Account], height: Int): Boolean = transaction match {
     case tx: PaymentTransaction =>
-      tx.signatureValid && tx.validate == ValidationResult.ValidateOke && this.included(tx, Some(height)).isEmpty
+      tx.correctAuthorship && tx.validate == ValidationResult.ValidateOke && this.included(tx, Some(height)).isEmpty
     case gtx: GenesisTransaction =>
       height == 0
     case otx: Any =>

@@ -15,11 +15,11 @@ import scorex.transaction.AccountTransaction
 
 @Path("/consensus")
 @Api(value = "/consensus", description = "Consensus-related calls")
-class NxtConsensusApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
+class NxtConsensusApiRoute[TX <: AccountTransaction](override val application: Application[TX])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
   //todo: asInstanceOf
-  private val consensusModule = application.consensusModule.asInstanceOf[NxtLikeConsensusModule]
+  private val consensusModule = application.consensusModule.asInstanceOf[NxtLikeConsensusModule[TX]]
   private val blockStorage = application.blockStorage
 
   override val route: Route =

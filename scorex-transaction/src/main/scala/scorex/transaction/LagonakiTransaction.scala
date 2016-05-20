@@ -7,6 +7,8 @@ import scorex.crypto.encode.Base58
 
 import scorex.serialization.{BytesSerializable, BytesParseable}
 import scorex.transaction.LagonakiTransaction.TransactionType
+import scorex.transaction.proof.Proof
+import scorex.transaction.proof.special.Signature25519
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Try}
@@ -17,8 +19,10 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
                                    val amount: Long,
                                    override val fee: Long,
                                    override val timestamp: Long,
-                                   override val signature: Array[Byte]) extends AccountTransaction with BytesSerializable {
+                                   val signature: Array[Byte]) extends AccountTransaction with BytesSerializable {
   import LagonakiTransaction._
+
+  override lazy val proof: Proof = Signature25519(signature)
 
   lazy val deadline = timestamp + 24.hours.toMillis
 
@@ -33,11 +37,6 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
 
   //PARSE/CONVERT
   val dataLength: Int
-
-  val creator: Option[Account]
-
-
-  val signatureValid: Boolean
 
   //VALIDATE
   def validate: ValidationResult.Value

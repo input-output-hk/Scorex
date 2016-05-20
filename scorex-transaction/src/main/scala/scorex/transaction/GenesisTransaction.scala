@@ -1,7 +1,5 @@
 package scorex.transaction
 
-import java.math.BigInteger
-
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
 import scorex.transaction.account.Account
@@ -22,12 +20,12 @@ case class GenesisTransaction(override val recipient: Account,
   import scorex.transaction.GenesisTransaction._
   import scorex.transaction.LagonakiTransaction._
 
-  override lazy val creator: Option[Account] = None
+  override lazy val sender: Option[Account] = None
 
   override lazy val json: JsObject =
     jsonBase() ++ Json.obj("recipient" -> recipient.address, "amount" -> amount.toString)
 
-  override lazy val bytes: Array[Byte] = {
+  override lazy val messageToSign: Array[Byte] = {
     val typeBytes = Array(TransactionType.GenesisTransaction.id.toByte)
 
     val timestampBytes = Bytes.ensureCapacity(Longs.toByteArray(timestamp), TimestampLength, 0)
@@ -44,7 +42,7 @@ case class GenesisTransaction(override val recipient: Account,
 
   override lazy val dataLength = TypeLength + BASE_LENGTH
 
-  override lazy val signatureValid: Boolean = {
+  override lazy val correctAuthorship: Boolean = {
     val typeBytes = Bytes.ensureCapacity(Ints.toByteArray(TransactionType.GenesisTransaction.id), TypeLength, 0)
     val timestampBytes = Bytes.ensureCapacity(Longs.toByteArray(timestamp), TimestampLength, 0)
     val amountBytes = Bytes.ensureCapacity(Longs.toByteArray(amount), AmountLength, 0)

@@ -6,7 +6,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import scorex.block.Block
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.AccountTransaction
+import scorex.transaction.{LagonakiTransaction, AccountTransaction}
 import scorex.transaction.account.{PublicKeyAccount, BalanceSheet}
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.utils.{ScorexLogging, untilTimeout}
@@ -61,7 +61,7 @@ with TransactionTestingCommons {
       val toGen = UnconfirmedTransactionsDatabaseImpl.SizeLimit - transactionModule.packUnconfirmed().size
       (0 until toGen) foreach (i => genValidTransaction())
       val blocksFuture = application.consensusModule.generateNextBlocks(Seq(accounts.head))(transactionModule)
-      val blocks: Seq[Block[AccountTransaction]] = Await.result(blocksFuture, 10.seconds)
+      val blocks: Seq[Block[LagonakiTransaction]] = Await.result(blocksFuture, 10.seconds)
       blocks.nonEmpty shouldBe true
       blocks.head
     }
@@ -90,7 +90,7 @@ with TransactionTestingCommons {
     stopGeneration()
     cleanTransactionPool()
 
-    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx.asInstanceOf[AccountTransaction]))
+    incl.foreach(tx => UnconfirmedTransactionsDatabaseImpl.putIfNew(tx.asInstanceOf[LagonakiTransaction]))
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size
     val tx = genValidTransaction(randomAmnt = false)
     UnconfirmedTransactionsDatabaseImpl.all().size shouldBe incl.size + 1

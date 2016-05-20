@@ -5,7 +5,6 @@ import play.api.libs.json.Json
 import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.serialization.BytesParseable
 import scorex.transaction.account.{PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging

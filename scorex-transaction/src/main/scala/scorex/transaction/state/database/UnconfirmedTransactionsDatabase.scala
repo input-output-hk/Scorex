@@ -1,13 +1,14 @@
 package scorex.transaction.state.database
 
-import scorex.transaction.AccountTransaction
+import scorex.transaction.{Transaction, AccountTransaction}
 
-trait UnconfirmedTransactionsDatabase {
-  def putIfNew(tx: AccountTransaction): Boolean
+abstract class UnconfirmedTransactionsDatabase[TX <: Transaction[_]] {
 
-  def all(): Seq[AccountTransaction]
+  def putIfNew(tx: TX): Boolean
 
-  def getBySignature(signature: Array[Byte]): Option[AccountTransaction]
+  def all(): Seq[TX]
 
-  def remove(tx: AccountTransaction)
+  def getBySignature(signature: Array[Byte]): Option[TX]
+
+  def remove(tx: TX)
 }

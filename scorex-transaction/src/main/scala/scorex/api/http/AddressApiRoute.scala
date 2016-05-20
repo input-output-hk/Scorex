@@ -10,7 +10,7 @@ import play.api.libs.json._
 import scorex.app.Application
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.transaction.AccountTransaction
+import scorex.transaction.{LagonakiTransaction, AccountTransaction}
 import scorex.transaction.account.{PublicKeyAccount, Account}
 import scorex.transaction.state.{LagonakiState, AccountMinimalState}
 
@@ -18,7 +18,7 @@ import scala.util.{Failure, Success, Try}
 
 @Path("/addresses")
 @Api(value = "/addresses/", description = "Info about wallet's accounts and other calls about addresses")
-case class AddressApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
+case class AddressApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet

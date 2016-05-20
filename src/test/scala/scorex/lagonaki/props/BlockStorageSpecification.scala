@@ -1,11 +1,9 @@
 package scorex.lagonaki.props
 
-import javax.smartcardio.ATR
-
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.transaction.AccountTransaction
+import scorex.transaction.LagonakiTransaction
 import scorex.transaction.account.PrivateKeyAccount
 import scorex.block.Block
 import scorex.lagonaki.BlockTestingCommons
@@ -15,7 +13,7 @@ class BlockStorageSpecification extends PropSpec with PropertyChecks with Genera
 with BlockTestingCommons {
 
   //  val smallInteger: Gen[Int] = Gen.choose(0, 2)
-  val blockGen: Gen[Block[AccountTransaction]] = for {
+  val blockGen: Gen[Block[LagonakiTransaction]] = for {
     gb <- Arbitrary.arbitrary[Long]
     gs <- Arbitrary.arbitrary[Array[Byte]]
     seed <- Arbitrary.arbitrary[Array[Byte]]
@@ -25,7 +23,7 @@ with BlockTestingCommons {
   storage.appendBlock(genesis)
 
   property("Add correct blocks") {
-    forAll(blockGen) { (block: Block[AccountTransaction]) =>
+    forAll(blockGen) { (block: Block[LagonakiTransaction]) =>
       val prevH = storage.history.height()
       val prevTx = storage.state.accountTransactions(gen).length
       storage.state.included(block.transactions.head) shouldBe None

@@ -5,7 +5,7 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.block.Block
 import scorex.lagonaki.BlockTestingCommons
-import scorex.transaction.AccountTransaction
+import scorex.transaction.LagonakiTransaction
 import scorex.utils._
 
 class BlockTreeSpecification extends PropSpec with PropertyChecks
@@ -13,9 +13,9 @@ with GeneratorDrivenPropertyChecks with Matchers with BlockTestingCommons {
 
   testTree(new StoredBlockTree(None, 100), "Memory")
 
-  def testTree(blockTree: StoredBlockTree[AccountTransaction], prefix: String): Unit = {
+  def testTree(blockTree: StoredBlockTree[LagonakiTransaction], prefix: String): Unit = {
 
-    val blockGen: Gen[Block[AccountTransaction]] = for {
+    val blockGen: Gen[Block[LagonakiTransaction]] = for {
       gb <- Arbitrary.arbitrary[Long]
       gs <- Arbitrary.arbitrary[Array[Byte]]
       seed <- Arbitrary.arbitrary[Array[Byte]]
@@ -32,7 +32,7 @@ with GeneratorDrivenPropertyChecks with Matchers with BlockTestingCommons {
       blockTree.height() shouldBe 1
       lastBlockId = blockTree.lastBlock.uniqueId
 
-      forAll(blockGen) { (block: Block[AccountTransaction]) =>
+      forAll(blockGen) { (block: Block[LagonakiTransaction]) =>
         val prevH = blockTree.height()
         val prevS = blockTree.score()
         val prevB = blockTree.lastBlock

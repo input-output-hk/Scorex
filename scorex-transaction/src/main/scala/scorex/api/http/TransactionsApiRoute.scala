@@ -8,7 +8,7 @@ import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.AccountTransaction
+import scorex.transaction.{LagonakiTransaction, AccountTransaction}
 import scorex.transaction.state.LagonakiState
 
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
@@ -18,7 +18,7 @@ import scala.util.{Success, Try}
 
 @Path("/transactions")
 @Api(value = "/transactions", description = "Information about transactions")
-case class TransactionsApiRoute(override val application: Application[AccountTransaction])(implicit val context: ActorRefFactory)
+case class TransactionsApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
   //todo: asInstanceOf, also ugly & dangerous casting

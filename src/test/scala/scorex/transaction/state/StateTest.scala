@@ -9,7 +9,7 @@ import org.scalatest.{Matchers, PropSpec}
 import scorex.lagonaki.mocks.BlockMock
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
 import scorex.transaction.state.database.blockchain.PersistentLagonakiState
-import scorex.transaction.{AccountTransaction, GenesisTransaction, PaymentTransaction}
+import scorex.transaction.{GenesisTransaction, LagonakiTransaction, PaymentTransaction}
 import scorex.utils._
 
 import scala.util.{Random, Success, Try}
@@ -30,7 +30,7 @@ object StateTestSpec extends Commands {
   val MaxTransactions = 100
   val genesisTxs: Seq[GenesisTransaction] = accounts.map(a => GenesisTransaction(a, TotalBalance / accN, 0L))
 
-  case class State(name: String, height: Int, included: Map[AccountTransaction, Int])
+  case class State(name: String, height: Int, included: Map[LagonakiTransaction, Int])
 
   case class Sut(fileName: String) {
     val storedState = new PersistentLagonakiState(Some(fileName))
@@ -82,7 +82,7 @@ object StateTestSpec extends Commands {
     ValidateTransactions(included ++ notIncluded)
   }
 
-  case class CheckTransaction(signature: AccountTransaction) extends Command {
+  case class CheckTransaction(signature: LagonakiTransaction) extends Command {
     type Result = Option[Int]
 
     def run(sut: Sut) = sut.synchronized {
@@ -100,7 +100,7 @@ object StateTestSpec extends Commands {
       }
   }
 
-  case class PutTransactions(txs: Seq[AccountTransaction]) extends Command {
+  case class PutTransactions(txs: Seq[LagonakiTransaction]) extends Command {
 
     type Result = (Int, Long)
 
@@ -122,9 +122,9 @@ object StateTestSpec extends Commands {
       result == Success((state.height + 1, TotalBalance))
   }
 
-  case class ValidateTransactions(txs: Seq[(AccountTransaction, Boolean)]) extends Command {
+  case class ValidateTransactions(txs: Seq[(LagonakiTransaction, Boolean)]) extends Command {
 
-    type Result = Seq[AccountTransaction]
+    type Result = Seq[LagonakiTransaction]
 
     def run(sut: Sut) = sut.synchronized {
       sut.storedState.validate(txs.map(_._1))
@@ -139,9 +139,9 @@ object StateTestSpec extends Commands {
     }
   }
 
-  def createTransaction(): AccountTransaction = createTransaction(1 + Random.nextInt(10), 1 + Random.nextInt(10))
+  def createTransaction(): LagonakiTransaction = createTransaction(1 + Random.nextInt(10), 1 + Random.nextInt(10))
 
-  def createTransaction(amount: Long, fee: Long): AccountTransaction =
+  def createTransaction(amount: Long, fee: Long): LagonakiTransaction =
     createPayment(accounts(Random.nextInt(accN)), accounts(Random.nextInt(accN)), amount, fee)
 
   def createPayment(sender: PrivateKeyAccount, recipient: Account, amount: Long, fee: Long): PaymentTransaction = {
