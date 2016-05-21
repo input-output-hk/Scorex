@@ -7,8 +7,7 @@ import scorex.crypto.encode.Base58
 
 import scorex.serialization.{BytesSerializable, BytesParseable}
 import scorex.transaction.LagonakiTransaction.TransactionType
-import scorex.transaction.proof.Proof
-import scorex.transaction.proof.special.Signature25519
+import scorex.transaction.proof.{Signature25519, Proof}
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Try}

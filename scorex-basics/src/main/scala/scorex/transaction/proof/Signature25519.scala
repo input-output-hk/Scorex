@@ -1,7 +1,6 @@
-package scorex.transaction.proof.special
+package scorex.transaction.proof
 
 import scorex.crypto.signatures.Curve25519
-import scorex.transaction.proof.Proof
 
 /**
   * Special case to not rewrite a lot of code in SimnplestTransactionModule

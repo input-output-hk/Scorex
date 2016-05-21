@@ -8,7 +8,7 @@ import scorex.consensus.ConsensusModule
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
-import scorex.transaction.proof.special.Signature25519
+import scorex.transaction.proof.Signature25519
 import scorex.transaction.{Transaction, TransactionModule, History}
 import scala.util.Try
 
