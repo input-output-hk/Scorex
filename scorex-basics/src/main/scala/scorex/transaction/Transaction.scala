@@ -39,8 +39,8 @@ abstract class BoxTransaction[Prop <: Proposition] extends Transaction[Box[Prop]
 
   override lazy val fee: Long = newBoxes.map(_.fee).sum
 
-  override def messageToSign: Array[Byte] = ???
-
-  override def correctAuthorship: Boolean = ???
+  override lazy val messageToSign: Array[Byte] =
+    newBoxes.map(_.bytes).reduce(_ ++ _) ++
+      unlockers.map(_.closedBox.id).reduce(_ ++ _)
 }
 
