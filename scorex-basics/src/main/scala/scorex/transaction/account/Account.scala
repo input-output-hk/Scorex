@@ -5,7 +5,7 @@ import scorex.crypto.hash.SecureCryptographicHash._
 import scorex.transaction.state.StateElement
 
 
-class Account(val address: String) extends StateElement with Serializable {
+class Account(val address: String) extends StateElement {
 
   override lazy val bytes = Base58.decode(address).get
 
@@ -50,5 +50,4 @@ object Account {
     }.getOrElse(false)
 
   private def calcCheckSum(withoutChecksum: Array[Byte]): Array[Byte] = hash(withoutChecksum).take(ChecksumLength)
-
 }
