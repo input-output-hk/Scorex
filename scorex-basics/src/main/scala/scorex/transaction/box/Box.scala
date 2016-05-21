@@ -12,9 +12,9 @@ trait Box[L <: Proposition] extends StateElement {
 
   val bytes: Array[Byte]
 
+  //min box size to have zero-fee
   val SMin = 0
 
-  //todo: min box size
   val fee: Int
 
   val value: Long
