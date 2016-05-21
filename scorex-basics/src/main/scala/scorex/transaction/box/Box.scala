@@ -6,15 +6,14 @@ import scorex.transaction.state.StateElement
   * Box is a state element. Basically it is some value locked by some condition.
   */
 trait Box[L <: Proposition] extends StateElement {
-  type Id
-
-  val id: Id
+  val id: Array[Byte]
 
   val lock: L
 
   val bytes: Array[Byte]
 
   val SMin = 0
+
   //todo: min box size
   val fee: Int
 

@@ -1,10 +1,10 @@
 package scorex.transaction
 
 import play.api.libs.json.JsObject
+import scorex.serialization.JsonSerializable
 import scorex.transaction.account.Account
 import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
 import scorex.transaction.state.StateElement
-import scorex.serialization.JsonSerializable
 
 
 /**
@@ -37,6 +37,10 @@ abstract class BoxTransaction[Prop <: Proposition] extends Transaction[Box[Prop]
 
   val newBoxes: Seq[Box[Prop]]
 
-  lazy val fee: Long = newBoxes.map(_.fee).sum
+  override lazy val fee: Long = newBoxes.map(_.fee).sum
+
+  override def messageToSign: Array[Byte] = ???
+
+  override def correctAuthorship: Boolean = ???
 }
 

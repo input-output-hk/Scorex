@@ -6,7 +6,7 @@ import scorex.transaction.proof.Proof
 /**
   * A reason to change a system state
   */
-trait StateChangeReason extends BytesSerializable {
+trait StateChangeReason extends BytesSerializable with Serializable {
   /**
     * A reason could be serialized into a binary form
     */
