@@ -1,7 +1,7 @@
 package scorex.transaction.state
 
 import scorex.block.Block
-import scorex.transaction.box.{Box, Proposition}
+import scorex.transaction.box.Proposition
 import scorex.transaction.{BoxTransaction, AccountTransaction, Transaction}
 import scala.util.Try
 
@@ -47,7 +47,7 @@ trait BoxMinimalState[Prop <: Proposition] extends MinimalState[BoxTransaction[P
     * as it stores closed boxes only
     * Please note the answer is "no" even if a box never existed
     */
-  def boxIsClosed(boxId: Box[Prop]#Id): Boolean
+  def boxIsClosed(boxId: Array[Byte]): Boolean
 
   override private[transaction] def processBlock(block: Block[BoxTransaction[Prop]]): Try[BoxMinimalState[Prop]]
 

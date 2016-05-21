@@ -15,7 +15,7 @@ case class Signature25519(signature: Array[Byte]) extends Proof {
 }
 
 object Signature25519 {
-  lazy val SignatureSize = new Curve25519().SignatureLength
+  lazy val SignatureSize = Curve25519.SignatureLength25519
 }
 
 
