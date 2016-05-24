@@ -5,7 +5,6 @@ import play.api.libs.json.{JsObject, Json}
 import scorex.crypto.encode.Base58
 import scorex.serialization.{JsonSerializable, BytesSerializable}
 import scorex.transaction.Transaction
-import scorex.transaction.account.PublicKeyAccount
 import scorex.transaction.state.StateElement
 
 /**
@@ -52,13 +51,18 @@ case class TransactionBlockField(override val name: String, override val value: 
   override lazy val bytes: Array[Byte] = value.bytes
 }
 
-case class SignerData(generator: PublicKeyAccount, signature: Array[Byte])
+case class ProducerBlockField[SE <: StateElement](override val name: String, override val value: SE)
+  extends BlockField[SE] {
 
-case class SignerDataBlockField(override val name: String, override val value: SignerData)
-  extends BlockField[SignerData] {
+  override lazy val json: JsObject = Json.obj("generator" -> value.toString)
 
-  override lazy val json: JsObject = Json.obj("generator" -> value.generator.toString,
-    "signature" -> Base58.encode(value.signature))
+  override lazy val bytes: Array[Byte] = value.publicKey
+}
 
-  override lazy val bytes: Array[Byte] = value.generator.publicKey ++ value.signature
+case class SignatureBlockField(override val name: String, override val value: Array[Byte])
+  extends BlockField[Array[Byte]] {
+
+  override lazy val json: JsObject = Json.obj("signature" -> Base58.encode(value))
+
+  override lazy val bytes: Array[Byte] = value
 }

@@ -9,6 +9,7 @@ import scorex.crypto.encode.Base58
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.ScoreObserver.{ConsideredValue, GetScore, UpdateScore}
 import scorex.network.message.Message
+import scorex.transaction.state.StateElement
 import scorex.transaction.{Transaction, History}
 import scorex.utils.ScorexLogging
 import shapeless.syntax.typeable._
@@ -21,7 +22,7 @@ import BlockTypeCast._
 
 
 //todo: write tests
-class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) extends ViewSynchronizer with ScorexLogging {
+class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](application: Application[SE, TX]) extends ViewSynchronizer with ScorexLogging {
 
   import HistorySynchronizer._
   import application.basicMessagesSpecsRepo._
@@ -123,11 +124,11 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) ex
       }
   }: Receive)
 
-  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive =
+  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[SE, TX]])]): Receive =
     state(HistorySynchronizer.GettingBlock, {
 
-      case DataFromPeer(msgId, block: Block[TX]@unchecked, connectedPeer)
-        if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
+      case DataFromPeer(msgId, block: Block[SE, TX]@unchecked, connectedPeer)
+        if msgId == BlockMessageSpec.messageCode && block.cast[Block[SE, TX]].isDefined =>
 
         lastUpdate = System.currentTimeMillis()
         val blockId = block.uniqueId
@@ -155,14 +156,14 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) ex
 
   //accept only new block from local or remote
   def synced: Receive = state(HistorySynchronizer.Synced, {
-    case block: Block[TX] =>
+    case block: Block[SE, TX] =>
       processNewBlock(block, local = true)
 
     case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
       if (networkScore > history.score()) gotoGettingExtension(networkScore, witnesses)
 
-    case DataFromPeer(msgId, block: Block[TX]@unchecked, _)
-      if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
+    case DataFromPeer(msgId, block: Block[SE, TX]@unchecked, _)
+      if msgId == BlockMessageSpec.messageCode && block.cast[Block[SE, TX]].isDefined =>
       processNewBlock(block, local = false)
   }: Receive)
 
@@ -180,7 +181,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) ex
     context become gettingExtension(betterScore, witnesses)
   }
 
-  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive = {
+  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[SE, TX]])]): Receive = {
     log.debug("Transition to gettingBlocks")
     context become gettingBlocks(witnesses, blocks)
     gettingBlocks(witnesses, blocks)
@@ -193,7 +194,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application[TX]) ex
     synced
   }
 
-  private def processNewBlock(block: Block[TX], local: Boolean): Boolean = Try {
+  private def processNewBlock(block: Block[SE, TX], local: Boolean): Boolean = Try {
     if (block.isValid) {
       log.info(s"New block(local: $local): ${block.json}")
 

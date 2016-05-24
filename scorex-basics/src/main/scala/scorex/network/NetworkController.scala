@@ -22,7 +22,7 @@ import scala.util.{Failure, Success, Try}
   * Control all network interaction
   * must be singleton
   */
-class NetworkController(application: Application[_]) extends Actor with ScorexLogging {
+class NetworkController(application: Application[_, _]) extends Actor with ScorexLogging {
 
   import NetworkController._
 

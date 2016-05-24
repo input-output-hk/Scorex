@@ -30,7 +30,7 @@ case object Ack extends Event
 
 
 //todo: timeout on Ack waiting
-case class PeerConnectionHandler(application: Application[_ <: Transaction[_]],
+case class PeerConnectionHandler(application: Application[_, _ <: Transaction[_]],
                                  connection: ActorRef,
                                  remote: InetSocketAddress) extends Actor with Buffering with ScorexLogging {
 

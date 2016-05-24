@@ -2,15 +2,15 @@ package scorex.transaction
 
 import scorex.block.{Block, BlockProcessingModule}
 import scorex.transaction.account.{Account, AccountTransactionsHistory, BalanceSheet}
-import scorex.transaction.state.{MinimalState, StateElement, AccountMinimalState}
+import scorex.transaction.state.{MinimalState, StateElement}
 
-trait TransactionModule[TBD, TX <: Transaction[_]] extends BlockProcessingModule[TBD] {
+trait TransactionModule[TBD, SE <: StateElement, TX <: Transaction[SE]] extends BlockProcessingModule[TBD] {
 
-  val blockStorage: BlockStorage[TX]
+  val blockStorage: BlockStorage[SE, TX]
 
-  def isValid(block: Block[TX]): Boolean
+  def isValid(block: Block[SE, TX]): Boolean
 
-  def transactions(block: Block[TX]): Seq[TX]
+  def transactions(block: Block[SE, TX]): Seq[TX]
 
   def packUnconfirmed(): TBD
 
@@ -19,12 +19,12 @@ trait TransactionModule[TBD, TX <: Transaction[_]] extends BlockProcessingModule
   def onNewOffchainTransaction(transaction: TX): Unit
 
   lazy val balancesSupport: Boolean = blockStorage.state match {
-    case _: MinimalState[AccountTransaction] with BalanceSheet => true
+    case _: MinimalState[Account, AccountTransaction] with BalanceSheet => true
     case _ => false
   }
 
   lazy val accountWatchingSupport: Boolean = blockStorage.state match {
-    case _: MinimalState[AccountTransaction] with AccountTransactionsHistory => true
+    case _: MinimalState[Account, AccountTransaction] with AccountTransactionsHistory => true
     case _ => false
   }
 }

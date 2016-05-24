@@ -4,6 +4,7 @@ import akka.actor.Actor
 import scorex.app.Application
 import scorex.consensus.mining.Miner._
 import scorex.transaction.AccountTransaction
+import scorex.transaction.account.Account
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.Await
@@ -11,7 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Try}
 
-class Miner(application: Application[AccountTransaction]) extends Actor with ScorexLogging {
+class Miner(application: Application[Account, AccountTransaction]) extends Actor with ScorexLogging {
 
   // BlockGenerator is trying to generate a new block every $blockGenerationDelay. Should be 0 for PoW consensus model.
   val blockGenerationDelay = application.settings.blockGenerationDelay

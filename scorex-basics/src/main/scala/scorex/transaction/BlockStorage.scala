@@ -11,16 +11,16 @@ import scala.util.{Failure, Success, Try}
 /**
   * Storage interface combining both history(blockchain/blocktree) and state
   */
-trait BlockStorage[TX <: Transaction[_]] extends ScorexLogging {
+trait BlockStorage[SE <: StateElement, TX <: Transaction[SE]] extends ScorexLogging {
 
   val MaxRollback: Int
 
-  val history: History[TX]
+  val history: History[SE, TX]
 
-  def state: MinimalState[TX]
+  def state: MinimalState[SE, TX]
 
   //Append block to current state
-  def appendBlock(block: Block[TX]): Try[Unit] = synchronized {
+  def appendBlock(block: Block[SE, TX]): Try[Unit] = synchronized {
     history.appendBlock(block).map { blocks =>
       blocks foreach { b =>
         state.processBlock(b) match {
@@ -38,7 +38,7 @@ trait BlockStorage[TX <: Transaction[_]] extends ScorexLogging {
   //Should be used for linear blockchain only
   def removeAfter(signature: BlockId): Unit = synchronized {
     history match {
-      case h: BlockChain[TX] => h.heightOf(signature) match {
+      case h: BlockChain[SE, TX] => h.heightOf(signature) match {
         case Some(height) =>
           while (!h.lastBlock.uniqueId.sameElements(signature)) h.discardBlock()
           state.rollbackTo(height)

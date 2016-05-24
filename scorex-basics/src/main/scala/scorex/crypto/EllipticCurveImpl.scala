@@ -10,6 +10,3 @@ import scorex.transaction.account.PrivateKeyAccount
   * (e.g. hash-based signatures) will require a lot of code changes around the project(at least because of
   * big signature size).
   */
-object EllipticCurveImpl extends Curve25519 {
-  def sign(account: PrivateKeyAccount, message: MessageToSign): Signature = sign(account.privateKey, message)
-}

@@ -3,10 +3,10 @@ package scorex.block
 import com.google.common.primitives.{Ints, Longs}
 import play.api.libs.json.Json
 import scorex.consensus.ConsensusModule
-import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.transaction.account.{PrivateKeyAccount, PublicKeyAccount}
-import scorex.transaction.{Transaction, TransactionModule}
+import scorex.transaction.account.PubKey25519Account
+import scorex.transaction.state.StateElement
+import scorex.transaction.{Signable, Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Try}
@@ -27,12 +27,12 @@ import scala.util.{Failure, Try}
   * - additional data: block structure version no, timestamp etc
   */
 
-trait Block[TX <: Transaction[_]] extends ScorexLogging {
+trait Block[SE <: StateElement, TX <: Transaction[SE]] extends Signable with ScorexLogging {
   type ConsensusDataType
   type TransactionDataType
 
-  implicit val consensusModule: ConsensusModule[ConsensusDataType, _, TX]
-  implicit val transactionModule: TransactionModule[TransactionDataType, TX]
+  implicit val consensusModule: ConsensusModule[ConsensusDataType, SE, TX]
+  implicit val transactionModule: TransactionModule[TransactionDataType, SE, TX]
 
   val consensusDataField: BlockField[ConsensusDataType]
   val transactionDataField: BlockField[TransactionDataType]
@@ -40,11 +40,12 @@ trait Block[TX <: Transaction[_]] extends ScorexLogging {
   val versionField: ByteBlockField
   val timestampField: LongBlockField
   val referenceField: BlockIdField
-  val signerDataField: SignerDataBlockField
+  val producerField: ProducerBlockField[SE]
+  val signatureField: SignatureBlockField
 
   // Some block characteristic which is uniq for a block
   // e.g. hash or signature. Used in referencing
-  val uniqueId: Block.BlockId
+  val uniqueId = signatureField.bytes
 
   lazy val encodedId: String = Base58.encode(uniqueId)
 
@@ -58,13 +59,14 @@ trait Block[TX <: Transaction[_]] extends ScorexLogging {
       referenceField.json ++
       consensusDataField.json ++
       transactionDataField.json ++
-      signerDataField.json ++
+      producerField.json ++
+      signatureField.json ++
       Json.obj(
         "fee" -> fee,
         "blocksize" -> bytes.length
       )
 
-  lazy val bytes = {
+  override lazy val messageToSign = {
     val txBytesSize = transactionDataField.bytes.length
     val txBytes = Ints.toByteArray(txBytesSize) ++ transactionDataField.bytes
 
@@ -75,32 +77,36 @@ trait Block[TX <: Transaction[_]] extends ScorexLogging {
       timestampField.bytes ++
       referenceField.bytes ++
       cBytes ++
-      txBytes ++
-      signerDataField.bytes
+      txBytes
   }
 
-  lazy val bytesWithoutSignature = bytes.dropRight(EllipticCurveImpl.SignatureLength)
+  lazy val producer = producerField.value
+
+  lazy val signature = signatureField.value
+
+  //todo: handle the nonce
+  lazy val nonce: Array[Byte] = Array()
+
 
   def isValid: Boolean = {
     if (transactionModule.blockStorage.history.contains(this)) true //applied blocks are valid
     else {
       lazy val history = transactionModule.blockStorage.history.contains(referenceField.value)
-      lazy val signature = EllipticCurveImpl.verify(signerDataField.value.signature, bytesWithoutSignature,
-        signerDataField.value.generator.publicKey)
+      lazy val sigValid = producer.verify(messageToSign, signature, nonce)
       lazy val consensus = consensusModule.isValid(this)
       lazy val transaction = transactionModule.isValid(this)
 
       if (!history) log.debug(s"Invalid block $encodedId: no parent block in history")
-      else if (!signature) log.debug(s"Invalid block $encodedId: signature is not valid")
+      else if (!sigValid) log.debug(s"Invalid block $encodedId: signature is not valid")
       else if (!consensus) log.debug(s"Invalid block $encodedId: consensus data is not valid")
       else if (!transaction) log.debug(s"Invalid block $encodedId: transaction data is not valid")
 
-      history && signature && consensus && transaction
+      history && sigValid && consensus && transaction
     }
   }
 
   override def equals(obj: scala.Any): Boolean = obj match {
-    case b: Block[TX] => b.uniqueId.sameElements(this.uniqueId)
+    case b: Block[SE, TX] => b.uniqueId.sameElements(this.uniqueId)
     case _ => false
   }
 }
@@ -109,12 +115,10 @@ trait Block[TX <: Transaction[_]] extends ScorexLogging {
 object Block extends ScorexLogging {
   type BlockId = Array[Byte]
 
-  val BlockIdLength = EllipticCurveImpl.SignatureLength
-
   //TODO BytesParseable[Block] ??
-  def parseBytes[CDT, TDT, TX <: Transaction[_]](bytes: Array[Byte])
-                          (implicit consModule: ConsensusModule[CDT, _, TX],
-                      transModule: TransactionModule[TDT, TX]): Try[Block[TX]] = Try {
+  def parseBytes[CDT, TDT, SE <: StateElement, TX <: Transaction[SE]](bytes: Array[Byte])
+                                                                     (implicit consModule: ConsensusModule[CDT, SE, TX],
+                                                                      transModule: TransactionModule[TDT, SE, TX]): Try[Block[SE, TX]] = Try {
 
     val version = bytes.head
 
@@ -143,19 +147,20 @@ object Block extends ScorexLogging {
 
     val signature = bytes.slice(position, position + EllipticCurveImpl.SignatureLength)
 
-    new Block[TX] {
+    new Block[SE, TX] {
       override type ConsensusDataType = CDT
       override type TransactionDataType = TDT
 
       override val transactionDataField: BlockField[TransactionDataType] = txBlockField
 
       override implicit val consensusModule: ConsensusModule[ConsensusDataType, _, TX] = consModule
-      override implicit val transactionModule: TransactionModule[TransactionDataType, TX] = transModule
+      override implicit val transactionModule: TransactionModule[TransactionDataType, SE, TX] = transModule
 
       override val versionField: ByteBlockField = ByteBlockField("version", version)
       override val referenceField: BlockIdField = BlockIdField("reference", reference)
+
       override val signerDataField: SignerDataBlockField =
-        SignerDataBlockField("signature", SignerData(new PublicKeyAccount(genPK), signature))
+        SignerDataBlockField("signature", SignerData(new PubKey25519Account(genPK), signature))
 
       override val consensusDataField: BlockField[ConsensusDataType] = consBlockField
 
@@ -169,21 +174,21 @@ object Block extends ScorexLogging {
     Failure(t)
   }
 
-  def build[CDT, TT, TDT, TX <: Transaction[_]](version: Byte,
-                                              timestamp: Long,
-                                              reference: BlockId,
-                                              consensusData: CDT,
-                                              transactionData: TDT,
-                                              generator: PublicKeyAccount,
-                                              signature: Array[Byte])
-                                             (implicit consModule: ConsensusModule[CDT, _, TX],
-                                              transModule: TransactionModule[TDT, TX]): Block[TX] = {
-    new Block[TX] {
+  def build[CDT, TT, TDT, SE <: StateElement, TX <: Transaction[SE]](version: Byte,
+                                                                     timestamp: Long,
+                                                                     reference: BlockId,
+                                                                     consensusData: CDT,
+                                                                     transactionData: TDT,
+                                                                     producer: SE,
+                                                                     signature: Array[Byte])
+                                                                    (implicit consModule: ConsensusModule[CDT, SE, TX],
+                                                                     transModule: TransactionModule[TDT, SE, TX]): Block[SE, TX] = {
+    new Block[SE, TX] {
       override type ConsensusDataType = CDT
       override type TransactionDataType = TDT
 
-      override implicit val transactionModule: TransactionModule[TDT, TX] = transModule
-      override implicit val consensusModule: ConsensusModule[CDT, _, TX] = consModule
+      override implicit val transactionModule: TransactionModule[TDT, SE, TX] = transModule
+      override implicit val consensusModule: ConsensusModule[CDT, SE, TX] = consModule
 
       override val versionField: ByteBlockField = ByteBlockField("version", version)
 
@@ -199,27 +204,27 @@ object Block extends ScorexLogging {
     }
   }
 
-  def buildAndSign[CDT, TDT, TX <: Transaction[_]](version: Byte,
-                                                 timestamp: Long,
-                                                 reference: BlockId,
-                                                 consensusData: CDT,
-                                                 transactionData: TDT,
-                                                 signer: PrivateKeyAccount)
-                                                (implicit consModule: ConsensusModule[CDT, _, TX],
-                                                 transModule: TransactionModule[TDT, TX]): Block[TX] = {
+  def buildAndSign[CDT, TDT, SE <: StateElement, TX <: Transaction[SE]](version: Byte,
+                                                                        timestamp: Long,
+                                                                        reference: BlockId,
+                                                                        consensusData: CDT,
+                                                                        transactionData: TDT,
+                                                                        signer: SE)
+                                                                       (implicit consModule: ConsensusModule[CDT, SE, TX],
+                                                                        transModule: TransactionModule[TDT, SE, TX]): Block[SE, TX] = {
     val nonSignedBlock = build(version, timestamp, reference, consensusData, transactionData, signer, Array())
     val toSign = nonSignedBlock.bytes
     val signature = EllipticCurveImpl.sign(signer, toSign)
     build(version, timestamp, reference, consensusData, transactionData, signer, signature)
   }
 
-  def genesis[CDT, TDT, TX <: Transaction[_]](timestamp: Long = 0L)(implicit consModule: ConsensusModule[CDT, _ ,TX],
-                                                                  transModule: TransactionModule[TDT, TX]): Block[TX] = new Block[TX] {
+  def genesis[CDT, TDT, SE <: StateElement, TX <: Transaction[SE]](timestamp: Long = 0L)(implicit consModule: ConsensusModule[CDT, SE, TX],
+                                                                                         transModule: TransactionModule[TDT, SE, TX]): Block[SE, TX] = new Block[SE, TX] {
     override type ConsensusDataType = CDT
     override type TransactionDataType = TDT
 
-    override implicit val transactionModule: TransactionModule[TDT, TX] = transModule
-    override implicit val consensusModule: ConsensusModule[CDT, _, TX] = consModule
+    override implicit val transactionModule: TransactionModule[TDT, SE, TX] = transModule
+    override implicit val consensusModule: ConsensusModule[CDT, SE, TX] = consModule
 
     override val versionField: ByteBlockField = ByteBlockField("version", 1)
     override val transactionDataField: BlockField[TDT] = transactionModule.genesisData
@@ -230,6 +235,6 @@ object Block extends ScorexLogging {
     override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
 
     override val signerDataField: SignerDataBlockField = new SignerDataBlockField("signature",
-      SignerData(new PublicKeyAccount(Array.fill(32)(0)), Array.fill(EllipticCurveImpl.SignatureLength)(0)))
+      SignerData(new PubKey25519Account(Array.fill(32)(0)), Array.fill(EllipticCurveImpl.SignatureLength)(0)))
   }
 }
