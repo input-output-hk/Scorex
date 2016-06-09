@@ -1,8 +1,5 @@
 package scorex.crypto
 
-import scorex.crypto.signatures.Curve25519
-import scorex.crypto.signatures.SigningFunctions.{Signature, MessageToSign}
-import scorex.transaction.account.PrivateKeyAccount
 
 /**
   * This implementation is being used from many places in the code. We consider easy switching from one

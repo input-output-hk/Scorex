@@ -4,17 +4,16 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util
 import com.google.common.primitives.{Bytes, Ints}
 import scorex.block.Block
-import scorex.consensus.ConsensusModule
+import scorex.consensus.{BasicConsensusBlockData, ConsensusModule}
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
 import scorex.transaction.proof.Signature25519
-import scorex.transaction.state.StateElement
 import scorex.transaction.{Transaction, TransactionModule, History}
 import scala.util.Try
 
 
-class BasicMessagesRepo[SE <: StateElement, TX <: Transaction[SE]]()(implicit val transactionalModule: TransactionModule[_, SE, TX],
-                          consensusModule: ConsensusModule[_, SE, TX]) {
+class BasicMessagesRepo[TX <: Transaction]()(implicit val transactionalModule: TransactionModule[_, TX],
+                          consensusModule: ConsensusModule[_ <:  BasicConsensusBlockData, TX]) {
 
   object GetPeersSpec extends MessageSpec[Unit] {
     override val messageCode: Message.MessageCode = 1: Byte
@@ -101,22 +100,22 @@ class BasicMessagesRepo[SE <: StateElement, TX <: Transaction[SE]]()(implicit va
     override val messageCode: MessageCode = 22: Byte
     override val messageName: String = "GetBlock message"
 
-    override def serializeData(signature: Block.BlockId): Array[Byte] = signature
+    override def serializeData(id: Block.BlockId): Array[Byte] = id
 
     override def deserializeData(bytes: Array[Byte]): Try[Block.BlockId] = Try {
-      require(bytes.length == EllipticCurveImpl.SignatureLength, "Data does not match length")
+      require(bytes.length == consensusModule.BlockIdLength, "Data does not match length")
       bytes
     }
   }
 
-  object BlockMessageSpec extends MessageSpec[Block[SE, TX]] {
+  object BlockMessageSpec extends MessageSpec[Block[TX]] {
     override val messageCode: MessageCode = 23: Byte
 
     override val messageName: String = "Block message"
 
-    override def serializeData(block: Block[SE, TX]): Array[Byte] = block.bytes
+    override def serializeData(block: Block[TX]): Array[Byte] = block.bytes
 
-    override def deserializeData(bytes: Array[Byte]): Try[Block[SE, TX]] = Block.parseBytes(bytes)
+    override def deserializeData(bytes: Array[Byte]): Try[Block[TX]] = Block.parseBytes(bytes)
   }
 
   object ScoreMessageSpec extends MessageSpec[History.BlockchainScore] {

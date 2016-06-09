@@ -2,16 +2,13 @@ package scorex.transaction
 
 import play.api.libs.json.JsObject
 import scorex.serialization.JsonSerializable
-import scorex.transaction.account.Account
-import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
-import scorex.transaction.state.StateElement
-
+import scorex.transaction.box.{PublicKeyProposition, Box, BoxUnlocker, Proposition}
 
 /**
   * A transaction is an atomic state modifier
   */
 
-sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason with JsonSerializable {
+sealed abstract class Transaction extends Signable with StateChangeReason with JsonSerializable {
   def fee: Long
 
   val timestamp: Long
@@ -20,27 +17,25 @@ sealed abstract class Transaction[SE <: StateElement] extends StateChangeReason 
     * A transaction could be serialized into JSON
     */
   def json: JsObject
+
+  val senders: Traversable[Box[_]]
+  val recipients: Traversable[Box[_]]
 }
 
-
-abstract class AccountTransaction extends Transaction[Account] {
-  val sender: Option[Account]
-  val recipient: Account
+abstract class AccountTransaction[PKP <: PublicKeyProposition] extends Transaction {
+  override val senders: Traversable[Box[PKP]]
+  override val recipients: Traversable[Box[PKP]]
 }
 
 /**
   *
   * A BoxTransaction opens existing boxes and creates new ones
   */
-abstract class BoxTransaction[Prop <: Proposition] extends Transaction[Box[Prop]] {
+abstract class BoxTransaction[Prop <: Proposition] extends Transaction {
   val unlockers: Seq[BoxUnlocker[Prop]]
 
-  val newBoxes: Seq[Box[Prop]]
-
-  override lazy val fee: Long = newBoxes.map(_.fee).sum
-
   override lazy val messageToSign: Array[Byte] =
-    newBoxes.map(_.bytes).reduce(_ ++ _) ++
+    recipients.map(_.bytes).reduce(_ ++ _) ++
       unlockers.map(_.closedBox.id).reduce(_ ++ _)
 }
 

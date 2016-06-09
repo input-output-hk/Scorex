@@ -2,11 +2,12 @@ package scorex.transaction
 
 import com.google.common.primitives.Ints
 import play.api.libs.json.Json
-import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 
 import scorex.serialization.{BytesSerializable, BytesParseable}
 import scorex.transaction.LagonakiTransaction.TransactionType
+import scorex.transaction.account.PublicKeyNoncedBox
+import scorex.transaction.box.PublicKey25519Proposition
 import scorex.transaction.proof.{Signature25519, Proof}
 
 import scala.concurrent.duration._
@@ -14,11 +15,12 @@ import scala.util.{Failure, Try}
 
 
 abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
-                                   override val recipient: Account,
+                                   override val recipients: Traversable[PublicKey25519Proposition],
                                    val amount: Long,
                                    override val fee: Long,
                                    override val timestamp: Long,
-                                   val signature: Array[Byte]) extends AccountTransaction with BytesSerializable {
+                                   val signature: Array[Byte])
+  extends AccountTransaction[PublicKey25519Proposition] with BytesSerializable {
   import LagonakiTransaction._
 
   override lazy val proof: Proof = Signature25519(signature)
@@ -40,9 +42,9 @@ abstract class LagonakiTransaction(val transactionType: TransactionType.Value,
   //VALIDATE
   def validate: ValidationResult.Value
 
-  def involvedAmount(account: Account): Long
+  def involvedAmount(account: PublicKey25519Proposition): Long
 
-  def balanceChanges(): Seq[(Account, Long)]
+  def balanceChanges(): Seq[(PublicKey25519Proposition, Long)]
 
   override def equals(other: Any): Boolean = other match {
     case tx: LagonakiTransaction => signature.sameElements(tx.signature)
@@ -66,7 +68,7 @@ object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
 
   //MINIMUM FEE
   val MinimumFee = 1
-  val RecipientLength = Account.AddressLength
+  val RecipientLength = PublicKeyNoncedBox.AddressLength
   val TypeLength = 1
   val TimestampLength = 8
   val AmountLength = 8

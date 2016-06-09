@@ -7,7 +7,9 @@ import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.settings.Settings
 import scorex.transaction.SimpleTransactionModule.StoredInBlock
-import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
+import scorex.transaction.account.Account
+import scorex.transaction.box.PublicKey25519Proposition
+import scorex.transaction.state.PrivateKey25519Holder
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
 import scorex.transaction.state.database.blockchain.{StoredBlockTree, StoredBlockchain, PersistentLagonakiState}
 import scorex.transaction.state.wallet.Payment
@@ -110,16 +112,16 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     case _ => throw new Error("Wrong kind of transaction!")
   }
 
-  def createPayment(payment: Payment, wallet: Wallet): Option[PaymentTransaction] = {
+  def createPayment(payment: Payment, wallet: Wallet[_, _]): Option[PaymentTransaction] = {
     wallet.privateKeyAccount(payment.sender).map { sender =>
       createPayment(sender, new Account(payment.recipient), payment.amount, payment.fee)
     }
   }
 
-  def createPayment(sender: PrivateKeyAccount, recipient: Account, amount: Long, fee: Long): PaymentTransaction = {
+  def createPayment(sender: PrivateKey25519Holder, recipient: PublicKey25519Proposition, amount: Long, fee: Long): PaymentTransaction = {
     val time = NTP.correctedTime()
     val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time)
-    val payment = new PaymentTransaction(new PublicKeyAccount(sender.publicKey), recipient, amount, fee, time, sig)
+    val payment = new PaymentTransaction(sender.publicCommitment, recipient, amount, fee, time, sig)
     if (blockStorage.state.isValid(payment)) onNewOffchainTransaction(payment)
     payment
   }

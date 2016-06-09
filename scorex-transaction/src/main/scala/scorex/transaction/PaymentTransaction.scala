@@ -4,31 +4,34 @@ import java.util
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
-import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
-import scorex.crypto.EllipticCurveImpl
+import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
-
+import scorex.transaction.box.{PublicKeyProposition, PublicKey25519Proposition}
 import scala.util.Try
 
-case class PaymentTransaction(paymentSender: PublicKeyAccount,
-                              override val recipient: Account,
+case class PaymentTransaction(override val senders: Traversable[PublicKey25519Proposition],
+                              override val recipients: Traversable[PublicKey25519Proposition],
                               override val amount: Long,
                               override val fee: Long,
                               override val timestamp: Long,
                               override val signature: Array[Byte])
-  extends LagonakiTransaction(TransactionType.PaymentTransaction, recipient, amount, fee, timestamp, signature) {
+  extends LagonakiTransaction(TransactionType.PaymentTransaction, recipients, amount, fee, timestamp, signature) {
 
   import scorex.transaction.LagonakiTransaction._
   import scorex.transaction.PaymentTransaction._
 
   override lazy val dataLength = TypeLength + BaseLength
 
-  override lazy val sender = Some(paymentSender)
+  require(senders.size == 1)
+  require(recipients.size == 1)
+
+  lazy val sender = senders.head
+  lazy val recipient = recipients.head
 
   override lazy val json: JsObject = jsonBase() ++ Json.obj(
-    "sender" -> paymentSender.address,
+    "sender" -> sender.address,
     "recipient" -> recipient.address,
     "amount" -> amount
   )
@@ -40,18 +43,18 @@ case class PaymentTransaction(paymentSender: PublicKeyAccount,
     val amountBytes = Longs.toByteArray(amount)
     val feeBytes = Longs.toByteArray(fee)
 
-    Bytes.concat(typeBytes, timestampBytes, paymentSender.publicKey,
+    Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
       Base58.decode(recipient.address).get, amountBytes,
       feeBytes)
   }
 
   override lazy val correctAuthorship: Boolean = {
-    val data = signatureData(paymentSender, recipient, amount, fee, timestamp)
+    val data = signatureData(sender, recipient, amount, fee, timestamp)
     EllipticCurveImpl.verify(signature, data, paymentSender.publicKey)
   }
 
   override def validate: ValidationResult.Value =
-    if (!Account.isValidAddress(recipient.address)) {
+    if (!PublicKeyProposition.isValidAddress(recipient.address)) {
       ValidationResult.InvalidAddress //CHECK IF RECIPIENT IS VALID ADDRESS
     } else if (amount <= 0) {
       ValidationResult.NegativeAmount //CHECK IF AMOUNT IS POSITIVE
@@ -60,12 +63,12 @@ case class PaymentTransaction(paymentSender: PublicKeyAccount,
     } else ValidationResult.ValidateOke
 
 
-  override def involvedAmount(account: Account): Long = {
+  override def involvedAmount(account: PublicKey25519Proposition): Long = {
     val address = account.address
 
-    if (address.equals(paymentSender.address) && address.equals(recipient.address)) {
+    if (address.equals(sender.address) && address.equals(recipient.address)) {
       -fee
-    } else if (address.equals(paymentSender.address)) {
+    } else if (address.equals(sender.address)) {
       -amount - fee
     } else if (address.equals(recipient.address)) {
       amount
@@ -85,7 +88,7 @@ object PaymentTransaction extends BytesParseable[PaymentTransaction] {
   private val SignatureLength = 64
   private val BaseLength = TimestampLength + SenderLength + RecipientLength + AmountLength + FeeLength + SignatureLength
 
-  def apply(sender: PrivateKeyAccount, recipient: Account,
+  def apply(sender: PublicKey25519Proposition, recipient: Account,
             amount: Long, fee: Long, timestamp: Long): PaymentTransaction = {
     val sig = generateSignature(sender, recipient, amount, fee, timestamp)
     PaymentTransaction(sender, recipient, amount, fee, timestamp, sig)

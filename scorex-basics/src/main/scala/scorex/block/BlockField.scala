@@ -5,7 +5,6 @@ import play.api.libs.json.{JsObject, Json}
 import scorex.crypto.encode.Base58
 import scorex.serialization.{JsonSerializable, BytesSerializable}
 import scorex.transaction.Transaction
-import scorex.transaction.state.StateElement
 
 /**
   * An abstraction of a part of a block, wrapping some data. The wrapper interface
@@ -44,20 +43,21 @@ case class BlockIdField(override val name: String, override val value: Block.Blo
   override lazy val bytes: Array[Byte] = value
 }
 
-case class TransactionBlockField(override val name: String, override val value: Transaction[_ <: StateElement])
-  extends BlockField[Transaction[_]] {
+case class TransactionBlockField(override val name: String, override val value: Transaction)
+  extends BlockField[Transaction] {
 
   override lazy val json: JsObject = value.json
   override lazy val bytes: Array[Byte] = value.bytes
 }
 
-case class ProducerBlockField[SE <: StateElement](override val name: String, override val value: SE)
-  extends BlockField[SE] {
+/*
+case class ProducerBlockField(override val name: String, override val value: Identifiable)
+  extends BlockField[Identifiable] {
 
   override lazy val json: JsObject = Json.obj("generator" -> value.toString)
 
-  override lazy val bytes: Array[Byte] = value.publicKey
-}
+  override lazy val bytes: Array[Byte] = value.id
+} */
 
 case class SignatureBlockField(override val name: String, override val value: Array[Byte])
   extends BlockField[Array[Byte]] {

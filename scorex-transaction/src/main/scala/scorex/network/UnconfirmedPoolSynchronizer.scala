@@ -10,7 +10,7 @@ import scorex.utils.ScorexLogging
 /**
   * Synchronizing transactions that are not in blockchain yet
   */
-class UnconfirmedPoolSynchronizer(application: Application[AccountTransaction]) extends ViewSynchronizer with ScorexLogging {
+class UnconfirmedPoolSynchronizer(application: Application[AccountTransaction[_]]) extends ViewSynchronizer with ScorexLogging {
 
   override val messageSpecs = Seq(TransactionMessageSpec)
 
@@ -19,7 +19,7 @@ class UnconfirmedPoolSynchronizer(application: Application[AccountTransaction]) 
   val transactionModule = application.transactionModule
 
   override def receive: Receive = {
-    case DataFromPeer(msgId, tx: AccountTransaction, remote) if msgId == TransactionMessageSpec.messageCode =>
+    case DataFromPeer(msgId, tx: AccountTransaction[_], remote) if msgId == TransactionMessageSpec.messageCode =>
       log.debug(s"Got tx: $tx")
       (tx, transactionModule.blockStorage.state.isValid(tx)) match {
         case (ltx: LagonakiTransaction, true) => UnconfirmedTransactionsDatabaseImpl.putIfNew(ltx)

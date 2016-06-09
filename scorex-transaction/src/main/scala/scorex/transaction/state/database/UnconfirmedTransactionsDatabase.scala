@@ -1,8 +1,8 @@
 package scorex.transaction.state.database
 
-import scorex.transaction.{Transaction, AccountTransaction}
+import scorex.transaction.Transaction
 
-abstract class UnconfirmedTransactionsDatabase[TX <: Transaction[_]] {
+abstract class UnconfirmedTransactionsDatabase[TX <: Transaction] {
 
   def putIfNew(tx: TX): Boolean
 

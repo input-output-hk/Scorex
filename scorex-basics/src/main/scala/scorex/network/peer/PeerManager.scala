@@ -16,7 +16,7 @@ import scala.util.Random
   *
   * @param application - Scorex-based application
   */
-class PeerManager(application: Application[_, _]) extends Actor with ScorexLogging {
+class PeerManager(application: Application[_]) extends Actor with ScorexLogging {
 
   import PeerManager._
 

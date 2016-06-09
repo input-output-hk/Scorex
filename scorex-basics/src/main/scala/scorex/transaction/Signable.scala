@@ -3,12 +3,10 @@ package scorex.transaction
 import scorex.serialization.BytesSerializable
 import scorex.transaction.proof.Proof
 
-
-trait Signable extends BytesSerializable{
+trait Signable extends BytesSerializable {
   val proof: Proof
 
   override lazy val bytes: Array[Byte] = messageToSign ++ proof.bytes
 
   def messageToSign: Array[Byte]
-  def correctAuthorship: Boolean
 }

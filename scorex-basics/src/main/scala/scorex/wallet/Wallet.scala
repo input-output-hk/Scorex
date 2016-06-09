@@ -6,15 +6,19 @@ import com.google.common.primitives.{Bytes, Ints}
 import org.h2.mvstore.{MVMap, MVStore}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash
-import scorex.transaction.account.PrivateKeyAccount
-import scorex.utils.ScorexLogging
+import scorex.transaction.box.Proposition
+import scorex.transaction.state.{SecretHolder, SecretHolderGenerator}
+import scorex.utils.{ScorexLogging, randomBytes}
 
 import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
-import scorex.utils.randomBytes
 
 //todo: add accs txs?
-class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Array[Byte]]) extends ScorexLogging {
+class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[File],
+                                 password: String,
+                                 seedOpt: Option[Array[Byte]])
+                                (implicit generator: SecretHolderGenerator[SH])
+  extends ScorexLogging {
 
   private val NonceFieldName = "nonce"
 
@@ -27,8 +31,7 @@ class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Arra
     case None => new MVStore.Builder().open()
   }
 
-
-  private val accountsPersistence: MVMap[Int, Array[Byte]] = database.openMap("privkeys")
+  private val accountsPersistence: MVMap[Int, Array[Byte]] = database.openMap("secretHolders")
   private val seedPersistence: MVMap[String, Array[Byte]] = database.openMap("seed")
   private val noncePersistence: MVMap[String, Int] = database.openMap("nonce")
 
@@ -37,12 +40,11 @@ class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Arra
       val Attempts = 10
       val SeedSize = 64
       lazy val randomSeed = randomBytes(SeedSize)
-      lazy val encodedSeed = Base58.encode(randomSeed)
       def readSeed(limit: Int = Attempts): Array[Byte] = {
         println("Please type your wallet seed or type Enter to generate random one")
         val typed = scala.io.StdIn.readLine()
         if (typed.isEmpty) {
-          println(s"Your random generated seed is $encodedSeed")
+          println(s"Your random generated seed is ${Base58.encode(randomSeed)}")
           randomSeed
         } else
           Base58.decode(typed).getOrElse {
@@ -58,56 +60,50 @@ class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Arra
   }
   val seed: Array[Byte] = seedPersistence.get("seed")
 
-  private val accountsCache: TrieMap[String, PrivateKeyAccount] = {
-    val accs = accountsPersistence.keys.map(k => accountsPersistence.get(k)).map(seed => new PrivateKeyAccount(seed))
-    TrieMap(accs.map(acc => acc.address -> acc).toSeq: _*)
+  private val accountsCache: TrieMap[Proposition, SH] = {
+    val shs = accountsPersistence
+      .keys
+      .map(k => accountsPersistence.get(k))
+      .map(seed => generator.generateKeys(seed))
+
+    TrieMap(shs.map(sh => sh.publicCommitment -> sh).toSeq: _*)
   }
 
-  def privateKeyAccounts(): Seq[PrivateKeyAccount] = accountsCache.values.toSeq
+  def privateKeyAccounts(): Seq[SH] = accountsCache.values.toSeq
 
-  def generateNewAccounts(howMany: Int): Seq[PrivateKeyAccount] =
-    (1 to howMany).flatMap(_ => generateNewAccount())
+  def generateNewAccounts(howMany: Int): Seq[SH] = (1 to howMany).map(_ => generateNewAccount())
 
-  def generateNewAccount(): Option[PrivateKeyAccount] = synchronized {
+  def generateNewAccount(): SH = synchronized {
     val nonce = getAndIncrementNonce()
 
     val accountSeed = generateAccountSeed(seed, nonce)
-    val account = new PrivateKeyAccount(accountSeed)
+    val secretHolder: SH = generator.generateKeys(accountSeed)
 
-    val address = account.address
-    val created = if (!accountsCache.containsKey(address)) {
-      accountsCache += account.address -> account
-      accountsPersistence.put(accountsPersistence.lastKey() + 1, account.seed)
-      database.commit()
-      true
-    } else false
+    accountsCache += secretHolder.publicCommitment -> secretHolder
+    accountsPersistence.put(accountsPersistence.lastKey() + 1, secretHolder.bytes)
+    database.commit()
 
-    if (created) {
-      log.info("Added account #" + nonce)
-      Some(account)
-    } else None
+    log.info("Added account #" + nonce)
+    secretHolder
   }
 
   def generateAccountSeed(seed: Array[Byte], nonce: Int): Array[Byte] =
     SecureCryptographicHash(Bytes.concat(Ints.toByteArray(nonce), seed))
 
-
-  def deleteAccount(account: PrivateKeyAccount): Boolean = synchronized {
+  def deleteAccount(account: SH): Boolean = synchronized {
     //    val res = accountsPersistence.remove(account.seed)
     val res = accountsPersistence.keys.find { k =>
-      if (accountsPersistence.get(k) sameElements account.seed) {
+      if (accountsPersistence.get(k) sameElements account.bytes) {
         accountsPersistence.remove(k)
         true
       } else false
     }
     database.commit()
-    accountsCache -= account.address
+    accountsCache -= account.publicCommitment
     res.isDefined
   }
 
-  def exportAccountSeed(address: String): Option[Array[Byte]] = privateKeyAccount(address).map(_.seed)
-
-  def privateKeyAccount(address: String): Option[PrivateKeyAccount] = accountsCache.get(address)
+  def privateKeyAccount(address: Proposition): Option[SH] = accountsCache.get(address)
 
   def close(): Unit = if (!database.isClosed) {
     database.commit()
@@ -122,5 +118,4 @@ class Wallet(walletFileOpt: Option[File], password: String, seedOpt: Option[Arra
   def getAndIncrementNonce(): Int = synchronized {
     noncePersistence.put(NonceFieldName, nonce() + 1) - 1
   }
-
 }

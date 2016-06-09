@@ -1,53 +1,24 @@
 package scorex.transaction.account
 
-import scorex.crypto.encode.Base58
-import scorex.crypto.hash.FastCryptographicHash._
-import scorex.transaction.state.StateElement
+import scorex.transaction.box.{Box, Proposition, PublicKeyProposition}
 
 
-abstract class Account(val publicKey: Array[Byte]) extends StateElement {
-
-  val AddressVersion: Byte = 1
-  val ChecksumLength = 4
-  val HashLength = 20
-  val AddressLength = 1 + ChecksumLength + HashLength
-
-  lazy val address: String = {
-    val publicKeyHash = hash(publicKey).take(HashLength)
-    val withoutChecksum = AddressVersion +: publicKeyHash //prepend ADDRESS_VERSION
-    Base58.encode(withoutChecksum ++ calcCheckSum(withoutChecksum))
-  }
-
-  override lazy val bytes = Base58.decode(address).get
-
-  override def toString: String = address
-
-  override def equals(obj: Any): Boolean = obj match {
-    case acc: Account => acc.address == this.address
-    case _ => false
-  }
-
-  private def calcCheckSum(withoutChecksum: Array[Byte]): Array[Byte] = hash(withoutChecksum).take(ChecksumLength)
-
-  override def hashCode(): Int = address.hashCode()
+//todo: rename to StatefulAccount?
+trait NoncedBox[P <: Proposition] extends Box[P] {
+  val nonce: Long
 }
 
 
-object Account {
+trait PublicKeyNoncedBox[PKP <: PublicKeyProposition] extends NoncedBox[PKP] {
+  lazy val id = lock.id  //todo : add nonce
 
-  /**
-    * Create account from public key. Used in PublicKeyAccount/PrivateKeyAccount.
-    */
-  def isValidAddress(address: String): Boolean =
-    Base58.decode(address).map { addressBytes =>
-      if (addressBytes.length != Account.AddressLength)
-        false
-      else {
-        val checkSum = addressBytes.takeRight(ChecksumLength)
+  lazy val publicKey = lock.publicKey
 
-        val checkSumGenerated = calcCheckSum(addressBytes.dropRight(ChecksumLength))
+  //todo: probably incorrect
+  override def equals(obj: Any): Boolean = obj match {
+    case acc: PublicKeyNoncedBox[PKP] => acc.lock == this.lock && acc.value == this.value
+    case _ => false
+  }
 
-        checkSum.sameElements(checkSumGenerated)
-      }
-    }.getOrElse(false)
+  override def hashCode(): Int = lock.hashCode()
 }

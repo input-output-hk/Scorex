@@ -5,13 +5,15 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import scorex.api.http.{ApiRoute, CompositeHttpService}
 import scorex.block.Block
-import scorex.consensus.ConsensusModule
+import scorex.consensus.{BasicConsensusBlockData, ConsensusModule}
 import scorex.consensus.mining.BlockGeneratorController
 import scorex.network._
 import scorex.network.message.{BasicMessagesRepo, MessageHandler, MessageSpec}
 import scorex.network.peer.PeerManager
 import scorex.settings.Settings
-import scorex.transaction.state.StateElement
+import scorex.transaction.box.Proposition
+import scorex.transaction.proof.Proof
+import scorex.transaction.state.{SecretHolder, SecretHolderGenerator}
 import scorex.transaction.{Transaction, BlockStorage, History, TransactionModule}
 import scorex.utils.ScorexLogging
 import scorex.wallet.Wallet
@@ -19,7 +21,11 @@ import scorex.wallet.Wallet
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.runtime.universe.Type
 
-trait Application[SE <: StateElement, TX <: Transaction[SE]] extends ScorexLogging {
+trait Application[TX <: Transaction] extends ScorexLogging {
+  type P <: Proposition
+  type PR <: Proof
+  type SH <: SecretHolder[P, PR]
+
   val ApplicationNameLimit = 50
 
   val applicationName: String
@@ -31,8 +37,10 @@ trait Application[SE <: StateElement, TX <: Transaction[SE]] extends ScorexLoggi
   implicit val settings: Settings
 
   //modules
-  implicit val consensusModule: ConsensusModule[_, SE, TX]
-  implicit val transactionModule: TransactionModule[_, SE, TX]
+  implicit val consensusModule: ConsensusModule[_ <:  BasicConsensusBlockData, TX]
+  implicit val transactionModule: TransactionModule[_, TX]
+
+  implicit val generator: SecretHolderGenerator[SH]
 
   //api
   val apiRoutes: Seq[ApiRoute]
@@ -57,14 +65,14 @@ trait Application[SE <: StateElement, TX <: Transaction[SE]] extends ScorexLoggi
 
   //wallet
   private lazy val walletFileOpt = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
-  implicit lazy val wallet = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed)
+  implicit lazy val wallet: Wallet[P, SH] = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed)
 
   //interface to append log and state
-  lazy val blockStorage: BlockStorage[SE, TX] = transactionModule.blockStorage
+  lazy val blockStorage: BlockStorage[TX] = transactionModule.blockStorage
 
-  lazy val history: History[SE, TX] = blockStorage.history
+  lazy val history: History[TX] = blockStorage.history
 
-  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer[SE, TX]], this), "HistorySynchronizer")
+  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer[TX]], this), "HistorySynchronizer")
   lazy val historyReplier = actorSystem.actorOf(Props(classOf[HistoryReplier[TX]], this), "HistoryReplier")
 
 

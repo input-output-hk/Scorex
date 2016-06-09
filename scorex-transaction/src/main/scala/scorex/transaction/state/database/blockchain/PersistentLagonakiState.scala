@@ -94,7 +94,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
     val trans = block.transactions
 
     //todo: asInstanceOf?
-    val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, Account, LagonakiTransaction]]
+    val cm = block.consensusModule.asInstanceOf[ConsensusModule[block.ConsensusDataType, LagonakiTransaction]]
 
     trans.foreach(t => if (included(t).isDefined) throw new Error(s"Transaction $t is already in state"))
     val fees: Map[Account, (AccState, Reason)] = cm.feesDistribution(block)
@@ -109,7 +109,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
     this
   }
 
-  private def calcNewBalances(trans: Seq[Transaction[Account]], fees: Map[Account, (AccState, Reason)]):
+  private def calcNewBalances(trans: Seq[Transaction], fees: Map[Account, (AccState, Reason)]):
   Map[Account, (AccState, Reason)] = {
     val newBalances: Map[Account, (AccState, Reason)] = trans.foldLeft(fees) { case (changes, atx) =>
       atx match {
@@ -192,7 +192,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
     else validTransactions
   }
 
-  private def isValid(transaction: Transaction[Account], height: Int): Boolean = transaction match {
+  private def isValid(transaction: Transaction, height: Int): Boolean = transaction match {
     case tx: PaymentTransaction =>
       tx.correctAuthorship && tx.validate == ValidationResult.ValidateOke && this.included(tx, Some(height)).isEmpty
     case gtx: GenesisTransaction =>

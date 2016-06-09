@@ -2,31 +2,30 @@ package scorex.transaction
 
 import scorex.block.Block
 import scorex.block.Block.BlockId
-import scorex.transaction.state.StateElement
 import scorex.utils.ScorexLogging
 
-trait BlockChain[SE <: StateElement, TX <: Transaction[SE]] extends History[SE, TX] with ScorexLogging {
+trait BlockChain[TX <: Transaction] extends History[TX] with ScorexLogging {
 
-  def blockAt(height: Int): Option[Block[SE, TX]]
+  def blockAt(height: Int): Option[Block[TX]]
 
-  def genesisBlock: Option[Block[SE, TX]] = blockAt(1)
+  def genesisBlock: Option[Block[TX]] = blockAt(1)
 
-  override def parent(block: Block[SE, TX], back: Int = 1): Option[Block[SE, TX]] = {
+  override def parent(block: Block[TX], back: Int = 1): Option[Block[TX]] = {
     require(back > 0)
-    heightOf(block.referenceField.value).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
+    heightOf(block.parentId).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
   }
 
-  private[transaction] def discardBlock(): BlockChain[SE, TX]
+  private[transaction] def discardBlock(): BlockChain[TX]
 
-  override def lastBlocks(howMany: Int): Seq[Block[SE, TX]] =
+  override def lastBlocks(howMany: Int): Seq[Block[TX]] =
     (Math.max(1, height() - howMany + 1) to height()).flatMap(blockAt).reverse
 
   def lookForward(parentSignature: BlockId, howMany: Int): Seq[BlockId] =
     heightOf(parentSignature).map { h =>
-      (h + 1).to(Math.min(height(), h + howMany: Int)).flatMap(blockAt).map(_.uniqueId)
+      (h + 1).to(Math.min(height(), h + howMany: Int)).flatMap(blockAt).map(_.id)
     }.getOrElse(Seq())
 
-  def children(block: Block[SE, TX]): Seq[Block[SE, TX]]
+  def children(block: Block[TX]): Seq[Block[TX]]
 
-  override lazy val genesis: Block[SE, TX] = blockAt(1).get
+  override lazy val genesis: Block[TX] = blockAt(1).get
 }

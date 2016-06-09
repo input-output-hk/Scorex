@@ -8,23 +8,19 @@ import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json._
 import scorex.app.Application
-import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.encode.Base58
-import scorex.transaction.{LagonakiTransaction, AccountTransaction}
-import scorex.transaction.account.{PublicKeyAccount, Account}
-import scorex.transaction.state.{LagonakiState, AccountMinimalState}
+import scorex.transaction.LagonakiTransaction
+import scorex.transaction.box.PublicKeyProposition
+import scorex.transaction.state.LagonakiState
 
 import scala.util.{Failure, Success, Try}
 
-@Path("/addresses")
-@Api(value = "/addresses/", description = "Info about wallet's accounts and other calls about addresses")
+@Path("/wallet")
+@Api(value = "/wallet/", description = "Info about wallet's accounts and other calls about addresses")
 case class AddressApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet
-
-  //todo: asInstanceOf, and casting isn't always to be true, so very dangerous
-  private val state: LagonakiState = application.blockStorage.state.asInstanceOf[LagonakiState]
 
   override lazy val route =
     pathPrefix("addresses") {
@@ -42,7 +38,7 @@ case class AddressApiRoute(override val application: Application[LagonakiTransac
       withAuth {
         deleteJsonRoute {
           walletNotExists(wallet).getOrElse {
-            if (!Account.isValidAddress(address)) {
+            if (!PublicKeyProposition.isValidAddress(address)) {
               InvalidAddress.json
             } else {
               val deleted = wallet.privateKeyAccount(address).exists(account =>

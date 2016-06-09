@@ -9,7 +9,6 @@ import scorex.crypto.encode.Base58
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.ScoreObserver.{ConsideredValue, GetScore, UpdateScore}
 import scorex.network.message.Message
-import scorex.transaction.state.StateElement
 import scorex.transaction.{Transaction, History}
 import scorex.utils.ScorexLogging
 import shapeless.syntax.typeable._
@@ -22,7 +21,7 @@ import BlockTypeCast._
 
 
 //todo: write tests
-class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](application: Application[SE, TX]) extends ViewSynchronizer with ScorexLogging {
+class HistorySynchronizer[TX <: Transaction](application: Application[TX]) extends ViewSynchronizer with ScorexLogging {
 
   import HistorySynchronizer._
   import application.basicMessagesSpecsRepo._
@@ -92,7 +91,7 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
       val localScore = history.score()
       if (networkScore > localScore) {
         log.info(s"networkScore=$networkScore > localScore=$localScore")
-        val lastIds = history.lastBlocks(100).map(_.uniqueId)
+        val lastIds = history.lastBlocks(100).map(_.id)
         val msg = Message(GetSignaturesSpec, Right(lastIds), None)
         networkControllerRef ! NetworkController.SendToNetwork(msg, SendToChosen(witnesses))
         gotoGettingExtension(networkScore, witnesses)
@@ -124,14 +123,14 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
       }
   }: Receive)
 
-  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[SE, TX]])]): Receive =
+  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive =
     state(HistorySynchronizer.GettingBlock, {
 
-      case DataFromPeer(msgId, block: Block[SE, TX]@unchecked, connectedPeer)
-        if msgId == BlockMessageSpec.messageCode && block.cast[Block[SE, TX]].isDefined =>
+      case DataFromPeer(msgId, block: Block[TX]@unchecked, connectedPeer)
+        if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
 
         lastUpdate = System.currentTimeMillis()
-        val blockId = block.uniqueId
+        val blockId = block.id
         log.info("Got block: " + block.encodedId)
 
         blocks.indexWhere(_._1.sameElements(blockId)) match {
@@ -143,7 +142,7 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
               log.info(s"Going to process ${toProcess.size} blocks")
               toProcess.find(bp => !processNewBlock(bp, local = false)).foreach { case failedBlock =>
                 log.warn(s"Can't apply block: ${failedBlock.json}")
-                if (history.lastBlock.uniqueId sameElements failedBlock.referenceField.value) {
+                if (history.lastBlock.id sameElements failedBlock.parentId) {
                   connectedPeer.handlerRef ! PeerConnectionHandler.Blacklist
                 }
                 gotoSyncing()
@@ -156,14 +155,14 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
 
   //accept only new block from local or remote
   def synced: Receive = state(HistorySynchronizer.Synced, {
-    case block: Block[SE, TX] =>
+    case block: Block[TX] =>
       processNewBlock(block, local = true)
 
     case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
       if (networkScore > history.score()) gotoGettingExtension(networkScore, witnesses)
 
-    case DataFromPeer(msgId, block: Block[SE, TX]@unchecked, _)
-      if msgId == BlockMessageSpec.messageCode && block.cast[Block[SE, TX]].isDefined =>
+    case DataFromPeer(msgId, block: Block[TX]@unchecked, _)
+      if msgId == BlockMessageSpec.messageCode && block.cast[Block[TX]].isDefined =>
       processNewBlock(block, local = false)
   }: Receive)
 
@@ -181,7 +180,7 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
     context become gettingExtension(betterScore, witnesses)
   }
 
-  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[SE, TX]])]): Receive = {
+  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block[TX]])]): Receive = {
     log.debug("Transition to gettingBlocks")
     context become gettingBlocks(witnesses, blocks)
     gettingBlocks(witnesses, blocks)
@@ -194,7 +193,7 @@ class HistorySynchronizer[SE <: StateElement,  TX <: Transaction[SE]](applicatio
     synced
   }
 
-  private def processNewBlock(block: Block[SE, TX], local: Boolean): Boolean = Try {
+  private def processNewBlock(block: Block[TX], local: Boolean): Boolean = Try {
     if (block.isValid) {
       log.info(s"New block(local: $local): ${block.json}")
 

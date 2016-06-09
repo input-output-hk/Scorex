@@ -13,6 +13,7 @@ trait TransactionTestingCommons extends TestingCommons {
   if (transactionModule.blockStorage.history.isEmpty) {
     transactionModule.blockStorage.appendBlock(Block.genesis())
   }
+
   val wallet = application.wallet
   if (wallet.privateKeyAccounts().isEmpty) {
     wallet.generateNewAccounts(3)

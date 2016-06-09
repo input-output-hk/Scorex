@@ -1,26 +1,24 @@
 package scorex.block
 
 import scorex.transaction.Transaction
-import scorex.transaction.state.StateElement
 import shapeless._
 
 
 object BlockTypeCast {
 
-  implicit def blockTypeable[SE <: StateElement, TX <: Transaction[SE]]: Typeable[Block[SE, TX]] =
-    new Typeable[Block[SE, TX]] {
+  implicit def blockTypeable[TX <: Transaction]: Typeable[Block[TX]] =
+    new Typeable[Block[TX]] {
 
-      def cast(t: Any): Option[Block[SE, TX]] = Option(t).flatMap {
+      def cast(t: Any): Option[Block[TX]] = Option(t).flatMap {
         _ match {
-          case _: Block[_, _] =>
+          case _: Block[_] =>
             //todo: potentially dangerous, but it is not clear atm how to distinguish a type from block representation
-            Some(t.asInstanceOf[Block[SE, TX]])
+            Some(t.asInstanceOf[Block[TX]])
 
           case _ => None
         }
       }
 
-      override def describe: String = "Block[SE]"
+      override def describe: String = "Block[TX]"
     }
-
 }

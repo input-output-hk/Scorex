@@ -8,12 +8,11 @@ import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
 import scorex.transaction.{Transaction, BlockChain}
-import scorex.transaction.account.Account
-import scorex.transaction.state.StateElement
+
 
 @Path("/blocks")
 @Api(value = "/blocks", description = "Info about blockchain & individual blocks within it")
-case class BlocksApiRoute[TX <: Transaction[_]](override val application: Application[TX])(implicit val context: ActorRefFactory)
+case class BlocksApiRoute[TX <: Transaction](override val application: Application[TX])(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet

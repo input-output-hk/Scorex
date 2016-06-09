@@ -2,28 +2,32 @@ package scorex.transaction
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
-import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
 import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
+import scorex.transaction.box.{PublicKeyProposition, PublicKey25519Proposition}
 
 import scala.util.Try
 
 
-case class GenesisTransaction(override val recipient: Account,
+case class GenesisTransaction(override val recipients: Traversable[PublicKey25519Proposition],
                               override val amount: Long,
                               override val timestamp: Long)
-  extends LagonakiTransaction(TransactionType.GenesisTransaction, recipient, amount, 0, timestamp,
-    GenesisTransaction.generateSignature(recipient, amount, timestamp)) {
+  extends LagonakiTransaction(TransactionType.GenesisTransaction, recipients, amount, 0, timestamp,
+    GenesisTransaction.generateSignature(recipients.head, amount, timestamp)) {
 
   import scorex.transaction.GenesisTransaction._
   import scorex.transaction.LagonakiTransaction._
 
-  override lazy val sender: Option[Account] = None
+  require(recipients.size == 1)
+
+  lazy val recipient = recipients.head
+
+  override lazy val senders: Option[PublicKey25519Proposition] = None
 
   override lazy val json: JsObject =
-    jsonBase() ++ Json.obj("recipient" -> recipient.address, "amount" -> amount.toString)
+    jsonBase() ++ Json.obj("recipient" -> recipients.head.address, "amount" -> amount.toString)
 
   override lazy val messageToSign: Array[Byte] = {
     val typeBytes = Array(TransactionType.GenesisTransaction.id.toByte)
@@ -33,7 +37,7 @@ case class GenesisTransaction(override val recipient: Account,
     val amountBytes = Bytes.ensureCapacity(Longs.toByteArray(amount), AmountLength, 0)
 
     val rcpBytes = Base58.decode(recipient.address).get
-    require(rcpBytes.length == Account.AddressLength)
+    require(rcpBytes.length == PublicKeyProposition.AddressLength)
 
     val res = Bytes.concat(typeBytes, timestampBytes, rcpBytes, amountBytes)
     require(res.length == dataLength)
@@ -42,7 +46,8 @@ case class GenesisTransaction(override val recipient: Account,
 
   override lazy val dataLength = TypeLength + BASE_LENGTH
 
-  override lazy val correctAuthorship: Boolean = {
+  /*
+  lazy val correctAuthorship: Boolean = {
     val typeBytes = Bytes.ensureCapacity(Ints.toByteArray(TransactionType.GenesisTransaction.id), TypeLength, 0)
     val timestampBytes = Bytes.ensureCapacity(Longs.toByteArray(timestamp), TimestampLength, 0)
     val amountBytes = Bytes.ensureCapacity(Longs.toByteArray(amount), AmountLength, 0)
@@ -50,18 +55,18 @@ case class GenesisTransaction(override val recipient: Account,
 
     val h = hash(data)
     Bytes.concat(h, h).sameElements(signature)
-  }
+  } */
 
   override def validate: ValidationResult.Value =
     if (amount < 0) {
       ValidationResult.NegativeAmount
-    } else if (!Account.isValidAddress(recipient.address)) {
+    } else if (!PublicKeyProposition.isValidAddress(recipient.address)) {
       ValidationResult.InvalidAddress
     } else ValidationResult.ValidateOke
 
-  override def involvedAmount(account: Account): Long = if (recipient.address.equals(account.address)) amount else 0
+  override def involvedAmount(account: PublicKey25519Proposition): Long = if (recipient.address.equals(account.address)) amount else 0
 
-  override def balanceChanges(): Seq[(Account, Long)] = Seq((recipient, amount))
+  override def balanceChanges(): Seq[(PublicKey25519Proposition, Long)] = Seq((recipient, amount))
 }
 
 
@@ -69,10 +74,10 @@ object GenesisTransaction extends BytesParseable[GenesisTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 
-  private val RECIPIENT_LENGTH = Account.AddressLength
+  private val RECIPIENT_LENGTH = PublicKeyProposition.AddressLength
   private val BASE_LENGTH = TimestampLength + RECIPIENT_LENGTH + AmountLength
 
-  def generateSignature(recipient: Account, amount: Long, timestamp: Long): Array[Byte] = {
+  def generateSignature(recipient: PublicKey25519Proposition, amount: Long, timestamp: Long): Array[Byte] = {
     val typeBytes = Bytes.ensureCapacity(Ints.toByteArray(TransactionType.GenesisTransaction.id), TypeLength, 0)
     val timestampBytes = Bytes.ensureCapacity(Longs.toByteArray(timestamp), TimestampLength, 0)
     val amountBytes = Longs.toByteArray(amount)

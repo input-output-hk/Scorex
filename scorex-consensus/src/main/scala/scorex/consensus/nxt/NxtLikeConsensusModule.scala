@@ -23,7 +23,7 @@ class NxtLikeConsensusModule[TX <: AccountTransaction](AvgDelay: Long = 5.second
 
   val version = 1: Byte
 
-  override def isValid[TT](block: Block[TX])(implicit transactionModule: TransactionModule[TT, TX]): Boolean = Try {
+  override def isValid[TT](block: Block[Account, TX])(implicit transactionModule: TransactionModule[TT, Account, TX]): Boolean = Try {
 
     val history = transactionModule.blockStorage.history
 

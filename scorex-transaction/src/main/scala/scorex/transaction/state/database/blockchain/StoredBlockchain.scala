@@ -1,11 +1,11 @@
 package scorex.transaction.state.database.blockchain
 
 import org.h2.mvstore.{MVMap, MVStore}
-import scorex.transaction.account.Account
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.consensus.ConsensusModule
 import scorex.transaction.History.BlockchainScore
+import scorex.transaction.box.Proposition
 import scorex.transaction.{Transaction, BlockChain, TransactionModule}
 import scorex.utils.ScorexLogging
 
@@ -15,8 +15,8 @@ import scala.util.{Failure, Success, Try}
 /**
   * If no datafolder provided, blockchain lives in RAM (useful for tests)
   */
-class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
-                      (implicit consensusModule: ConsensusModule[_, _, TX],
+class StoredBlockchain[TX <: Transaction](dataFolderOpt: Option[String])
+                      (implicit consensusModule: ConsensusModule[_, TX],
                        transactionModule: TransactionModule[_, TX])
   extends BlockChain[TX] with ScorexLogging {
 
@@ -31,7 +31,7 @@ class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
     def writeBlock(height: Int, block: Block[TX]): Try[Unit] = Try {
       blocks.put(height, block.bytes)
       scoreMap.put(height, score() + block.consensusModule.blockScore(block)(block.transactionModule))
-      signatures.put(height, block.uniqueId)
+      signatures.put(height, block.id)
       database.commit()
     }
 
@@ -67,8 +67,8 @@ class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
 
   override private[transaction] def appendBlock(block: Block[TX]): Try[Seq[Block[TX]]] = synchronized {
     Try {
-      val parent = block.referenceField
-      if ((height() == 0) || (lastBlock.uniqueId sameElements parent.value)) {
+      val parent = block.parentId
+      if ((height() == 0) || (lastBlock.id sameElements parent)) {
         val h = height() + 1
         blockStorage.writeBlock(h, block) match {
           case Success(_) => Seq(block)
@@ -107,15 +107,15 @@ class StoredBlockchain[TX <: Transaction[_]](dataFolderOpt: Option[String])
 
   override def children(block: Block[TX]): Seq[Block[TX]] = heightOf(block).flatMap(h => blockAt(h + 1)).toSeq
 
-  override def generatedBy(account: Account): Seq[Block[TX]] =
+  override def generatedBy(prop: Proposition): Seq[Block[TX]] =
     (1 to height()).toStream.flatMap { h =>
       blockAt(h).flatMap { block =>
-        if (block.consensusModule.producers(block).contains(account)) Some(block) else None
+        if (block.consensusModule.producers(block).contains(prop)) Some(block) else None
       }
     }
 
   override def toString: String = ((1 to height()) map { case h =>
     val bl = blockAt(h).get
-    s"$h -- ${bl.uniqueId.mkString} -- ${bl.referenceField.value.mkString}"
+    s"$h -- ${bl.id.mkString} -- ${bl.parentId.mkString}"
   }).mkString("\n")
 }

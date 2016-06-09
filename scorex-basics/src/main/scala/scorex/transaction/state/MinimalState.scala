@@ -1,8 +1,7 @@
 package scorex.transaction.state
 
 import scorex.block.Block
-import scorex.transaction.account.Account
-import scorex.transaction.box.{Box, Proposition}
+import scorex.transaction.box.Proposition
 import scorex.transaction.{BoxTransaction, AccountTransaction, Transaction}
 import scala.util.Try
 
@@ -10,10 +9,10 @@ import scala.util.Try
   * Abstract functional interface of state which is a result of a sequential blocks applying
   */
 
-sealed trait MinimalState[SE <: StateElement, TX <: Transaction[SE]] {
+sealed trait MinimalState[TX <: Transaction] {
   val version: Int
 
-  private[transaction] def processBlock(block: Block[SE, TX]): Try[MinimalState[SE, TX]]
+  private[transaction] def processBlock(block: Block[TX]): Try[MinimalState[TX]]
 
   def isValid(tx: TX): Boolean
 
@@ -21,11 +20,11 @@ sealed trait MinimalState[SE <: StateElement, TX <: Transaction[SE]] {
 
   def validate(txs: Seq[TX], height: Option[Int] = None): Seq[TX]
 
-  private[transaction] def rollbackTo(height: Int): Try[MinimalState[SE, TX]]
+  private[transaction] def rollbackTo(height: Int): Try[MinimalState[TX]]
 }
 
 
-trait AccountMinimalState[ATX <: AccountTransaction] extends MinimalState[Account, ATX] {
+trait AccountMinimalState[ATX <: AccountTransaction[_]] extends MinimalState[ATX] {
 
   override def validate(txs: Seq[ATX], height: Option[Int] = None): Seq[ATX]
 
@@ -41,7 +40,7 @@ trait AccountMinimalState[ATX <: AccountTransaction] extends MinimalState[Accoun
 
 
 
-trait BoxMinimalState[Prop <: Proposition] extends MinimalState[Box[Prop], BoxTransaction[Prop]] {
+trait BoxMinimalState[Prop <: Proposition] extends MinimalState[BoxTransaction[Prop]] {
 
   /**
     * The only question minimal box state could answer is "whether a box is closed?",
@@ -50,7 +49,7 @@ trait BoxMinimalState[Prop <: Proposition] extends MinimalState[Box[Prop], BoxTr
     */
   def boxIsClosed(boxId: Array[Byte]): Boolean
 
-  override private[transaction] def processBlock(block: Block[Box[Prop], BoxTransaction[Prop]]): Try[BoxMinimalState[Prop]]
+  override private[transaction] def processBlock(block: Block[BoxTransaction[Prop]]): Try[BoxMinimalState[Prop]]
 
   override def isValid(tx: BoxTransaction[Prop]): Boolean
 
