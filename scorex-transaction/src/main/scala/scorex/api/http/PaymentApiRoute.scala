@@ -20,7 +20,7 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
 
   // TODO asInstanceOf
   implicit lazy val transactionModule: SimpleTransactionModule = application.transactionModule.asInstanceOf[SimpleTransactionModule]
-  lazy val wallet = application.wallet
+  lazy val wallet = application.transactionModule.wallet
 
   override lazy val route = payment
 

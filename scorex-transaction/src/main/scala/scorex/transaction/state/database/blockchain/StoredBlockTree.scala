@@ -28,7 +28,7 @@ class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], Ma
     type Height = Int
     type StoredBlock = (Block, Score, Height)
 
-    def writeBlock(block: Block[TX]): Try[Boolean]
+    def writeBlock(block: Block): Try[Boolean]
 
     def readBlock(id: BlockId): Option[StoredBlock]
 

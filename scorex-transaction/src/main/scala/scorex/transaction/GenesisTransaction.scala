@@ -14,11 +14,10 @@ import scala.util.Try
 
 object GodAccount extends PublicKey25519NoncedBox(Sized.wrap(Array.fill(32)(0: Byte)), 0, 0L)
 
-
 case class GenesisTransaction(override val recipient: PublicKey25519Proposition,
                               override val amount: Long,
                               override val timestamp: Long)
-  extends LagonakiTransaction(TransactionType.GenesisTransaction, sender = GodAccount.lock, recipient, 0, amount, 0, timestamp,
+  extends LagonakiTransaction(TransactionType.GenesisTransaction, sender = GodAccount, recipient, 0, amount, 0, timestamp,
     GenesisTransaction.generateSignature(recipient, amount, timestamp)) {
 
   import scorex.transaction.GenesisTransaction._

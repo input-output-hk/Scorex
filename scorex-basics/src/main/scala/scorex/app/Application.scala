@@ -64,10 +64,6 @@ trait Application extends ScorexLogging {
   lazy val networkController = actorSystem.actorOf(Props(classOf[NetworkController], this), "networkController")
   lazy val blockGenerator = actorSystem.actorOf(Props(classOf[BlockGeneratorController], this), "blockGenerator")
 
-  //wallet
-  private lazy val walletFileOpt = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
-  implicit lazy val wallet: Wallet[SH] = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed)
-
   //interface to append log and state
   lazy val blockStorage = transactionModule.blockStorage
 
@@ -110,7 +106,7 @@ trait Application extends ScorexLogging {
     log.info("Stopping actors (incl. block generator)")
     actorSystem.terminate().onComplete { _ =>
       log.info("Closing wallet")
-      wallet.close()
+      transactionModule.stop()
 
       log.info("Exiting from the app...")
       System.exit(0)

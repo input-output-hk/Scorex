@@ -1,6 +1,7 @@
 package scorex.transaction
 
 import scorex.block.{Block, BlockProcessingModule}
+import scorex.settings.Settings
 import scorex.transaction.account.{AccountTransactionsHistory, BalanceSheet}
 import scorex.transaction.box.Proposition
 import scorex.transaction.proof.Proof
@@ -17,9 +18,13 @@ trait TransactionModule {
   type PR <: Proof[P]
   type SH <: SecretHolder[P, PR]
 
+  val settings: Settings
+
   val generator: SecretHolderGenerator[SH]
 
-  val wallet: Wallet[SH]
+  //wallet
+  private val walletFileOpt = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
+  val wallet: Wallet[P, SH] = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed, generator)
 
   val blockStorage: BlockStorage[P]
 
@@ -42,5 +47,9 @@ trait TransactionModule {
   lazy val accountWatchingSupport: Boolean = blockStorage.state match {
     case _: MinimalState[_] with AccountTransactionsHistory[_] => true
     case _ => false
+  }
+
+  def stop() = {
+    wallet.close()
   }
 }

@@ -21,6 +21,14 @@ abstract class Transaction[P <: Proposition] extends BytesSerializable with Json
     */
   def json: JsObject
 
+  val unlockers: Traversable[BoxUnlocker[P]]
+  val newBoxes: Traversable[Box[P]]
+
+  lazy val messageToSign: Array[Byte] =
+    newBoxes.map(_.bytes).reduce(_ ++ _) ++
+      unlockers.map(_.closedBoxId).reduce(_ ++ _) ++
+      Longs.toByteArray(timestamp) ++
+      Longs.toByteArray(fee)
 
   /**
     * A transaction is valid against a state if:
@@ -59,17 +67,4 @@ abstract class Transaction[P <: Proposition] extends BytesSerializable with Json
   }
 
   def semanticValidity: Boolean
-
-
-}
-
-abstract class BoxTransaction[P <: Proposition] extends Transaction {
-  val unlockers: Traversable[BoxUnlocker[P]]
-  val newBoxes: Traversable[Box[P]]
-
-  lazy val messageToSign: Array[Byte] =
-    newBoxes.map(_.bytes).reduce(_ ++ _) ++
-      unlockers.map(_.closedBoxId).reduce(_ ++ _) ++
-      Longs.toByteArray(timestamp) ++
-      Longs.toByteArray(fee)
 }

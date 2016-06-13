@@ -14,7 +14,7 @@ import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
 
 //todo: add accs txs?
-class Wallet[SH <: SecretHolder[_, _]](walletFileOpt: Option[File],
+class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[File],
                                        password: String,
                                        seedOpt: Option[Array[Byte]],
                                        generator: SecretHolderGenerator[SH])

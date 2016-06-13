@@ -110,7 +110,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     case _ => throw new Error("Wrong kind of transaction!")
   }
 
-  def createPayment(payment: Payment, wallet: Wallet[_]): Option[PaymentTransaction] = {
+  def createPayment(payment: Payment, wallet: Wallet[_,_]): Option[PaymentTransaction] = {
     wallet.privateKeyAccount(payment.sender).map { sender =>
       createPayment(sender, new Account(payment.recipient), payment.amount, payment.fee)
     }

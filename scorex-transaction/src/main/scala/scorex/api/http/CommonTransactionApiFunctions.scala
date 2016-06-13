@@ -9,10 +9,10 @@ import scorex.wallet.Wallet
 
 trait CommonTransactionApiFunctions extends CommonApiFunctions {
 
-  protected[api] def walletExists()(implicit wallet: Wallet[_]): Option[JsObject] =
+  protected[api] def walletExists()(implicit wallet: Wallet[_, _]): Option[JsObject] =
     if (wallet.exists()) Some(WalletAlreadyExists.json) else None
 
-  protected[api] def withPrivateKeyAccount[TM <: TransactionModule](wallet: Wallet[TM], address: String)
+  protected[api] def withPrivateKeyAccount[TM <: TransactionModule](wallet: Wallet[_, _], address: String)
                                                                    (action: TM#SH => JsValue): JsValue =
     walletNotExists(wallet).getOrElse {
       if (!PublicKeyProposition.isValidAddress(address)) {
@@ -25,6 +25,6 @@ trait CommonTransactionApiFunctions extends CommonApiFunctions {
       }
     }
 
-  protected[api] def walletNotExists(wallet: Wallet[_]): Option[JsObject] =
+  protected[api] def walletNotExists(wallet: Wallet[_, _]): Option[JsObject] =
     if (!wallet.exists()) Some(WalletNotExist.json) else None
 }

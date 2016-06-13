@@ -15,7 +15,7 @@ import scorex.transaction.{Transaction, BlockChain}
 case class BlocksApiRoute[TX <: Transaction[_]](override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
-  private val wallet = application.wallet
+  private val wallet = application.transactionModule.wallet
   private val history = application.history
 
   override lazy val route =

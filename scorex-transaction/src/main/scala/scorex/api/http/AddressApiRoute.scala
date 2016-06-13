@@ -9,7 +9,7 @@ import io.swagger.annotations._
 import play.api.libs.json._
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.LagonakiTransaction
+import scorex.transaction.{TransactionModule, LagonakiTransaction}
 import scorex.transaction.box.PublicKeyProposition
 import scorex.transaction.state.LagonakiState
 
@@ -20,7 +20,7 @@ import scala.util.{Failure, Success, Try}
 case class AddressApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
-  private val wallet = application.wallet
+  private val wallet = application.transactionModule.wallet
 
   override lazy val route =
     pathPrefix("addresses") {
