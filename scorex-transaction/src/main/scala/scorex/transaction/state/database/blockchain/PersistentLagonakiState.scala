@@ -7,7 +7,6 @@ import scorex.consensus.ConsensusModule
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.transaction.LagonakiTransaction.ValidationResult
 import scorex.transaction._
-import scorex.transaction.account.Account
 import scorex.transaction.state.LagonakiState
 import scorex.transaction.state.database.state._
 import scorex.utils.ScorexLogging
@@ -62,7 +61,7 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
       val change = Row(ch._2._1, ch._2._2, Option(lastStates.get(ch._1)).getOrElse(0))
       accountChanges(ch._1).put(h, change)
       lastStates.put(ch._1, h)
-      ch._2._2.foreach(t => includedTx.put(t.proof.bytes, h))
+      ch._2._2.foreach(t => includedTx.put(t. proof.bytes, h))
     }
     db.commit()
   }

@@ -4,16 +4,16 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util
 import com.google.common.primitives.{Bytes, Ints}
 import scorex.block.Block
-import scorex.consensus.{BasicConsensusBlockData, ConsensusModule}
+import scorex.consensus.ConsensusModule
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
 import scorex.transaction.proof.Signature25519
-import scorex.transaction.{Transaction, TransactionModule, History}
+import scorex.transaction.{TransactionModule, History}
 import scala.util.Try
 
 
-class BasicMessagesRepo[TX <: Transaction]()(implicit val transactionalModule: TransactionModule[_, TX],
-                          consensusModule: ConsensusModule[_ <:  BasicConsensusBlockData, TX]) {
+class BasicMessagesRepo[TM <: TransactionModule]()(implicit val transactionalModule: TM,
+                                            consensusModule: ConsensusModule[TM]) {
 
   object GetPeersSpec extends MessageSpec[Unit] {
     override val messageCode: Message.MessageCode = 1: Byte
@@ -108,14 +108,14 @@ class BasicMessagesRepo[TX <: Transaction]()(implicit val transactionalModule: T
     }
   }
 
-  object BlockMessageSpec extends MessageSpec[Block[TX]] {
+  object BlockMessageSpec extends MessageSpec[Block] {
     override val messageCode: MessageCode = 23: Byte
 
     override val messageName: String = "Block message"
 
-    override def serializeData(block: Block[TX]): Array[Byte] = block.bytes
+    override def serializeData(block: Block): Array[Byte] = block.bytes
 
-    override def deserializeData(bytes: Array[Byte]): Try[Block[TX]] = Block.parseBytes(bytes)
+    override def deserializeData(bytes: Array[Byte]): Try[Block] = Block.parseBytes(bytes)
   }
 
   object ScoreMessageSpec extends MessageSpec[History.BlockchainScore] {

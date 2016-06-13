@@ -8,15 +8,15 @@ import scala.util.Try
 
 object TransactionalMessagesRepo {
 
-  object TransactionMessageSpec extends MessageSpec[Transaction] {
+  object TransactionMessageSpec extends MessageSpec[Transaction[_]] {
     override val messageCode: MessageCode = 25: Byte
 
     override val messageName: String = "Transaction message"
 
-    override def deserializeData(bytes: Array[MessageCode]): Try[Transaction] =
+    override def deserializeData(bytes: Array[MessageCode]): Try[Transaction[_]] =
       LagonakiTransaction.parseBytes(bytes)
 
-    override def serializeData(tx: Transaction): Array[MessageCode] = tx.bytes
+    override def serializeData(tx: Transaction[_]): Array[MessageCode] = tx.bytes
   }
 
   val specs = Seq(TransactionMessageSpec)

@@ -2,10 +2,10 @@ package scorex.block
 
 import com.google.common.primitives.{Ints, Longs}
 import play.api.libs.json.Json
-import scorex.consensus.{BasicConsensusBlockData, ConsensusModule}
+import scorex.consensus.ConsensusModule
 import scorex.crypto.encode.Base58
 import scorex.serialization.BytesSerializable
-import scorex.transaction.{Transaction, TransactionModule}
+import scorex.transaction.TransactionModule
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Try}
@@ -26,12 +26,16 @@ import scala.util.{Failure, Try}
   * - additional data: block structure version no, timestamp etc
   */
 
-trait Block[TX <: Transaction] extends BytesSerializable with ScorexLogging {
-  type ConsensusDataType <: BasicConsensusBlockData
-  type TransactionDataType
+trait Block extends BytesSerializable with ScorexLogging {
 
-  implicit val consensusModule: ConsensusModule[ConsensusDataType, TX]
-  implicit val transactionModule: TransactionModule[TransactionDataType, TX]
+  type TM <: TransactionModule
+  type CM <: ConsensusModule[TM]
+
+  implicit val transactionModule: TM
+  implicit val consensusModule: CM
+
+  type ConsensusDataType = consensusModule.ConsensusBlockData
+  type TransactionDataType = transactionModule.TBD
 
   val consensusDataField: BlockField[ConsensusDataType]
   val transactionDataField: BlockField[TransactionDataType]
@@ -45,7 +49,7 @@ trait Block[TX <: Transaction] extends BytesSerializable with ScorexLogging {
 
   lazy val encodedId: String = Base58.encode(consensusModule.id(this))
 
-  lazy val transactions: Seq[TX] = transactionModule.transactions(this)
+  lazy val transactions = transactionModule.transactions(this)
 
   lazy val totalFee = consensusModule.feesDistribution(this).values.sum
 
@@ -88,7 +92,7 @@ trait Block[TX <: Transaction] extends BytesSerializable with ScorexLogging {
   }
 
   override def equals(obj: Any): Boolean = obj match {
-    case b: Block[TX] => consensusModule.id(b) sameElements consensusModule.id(this)
+    case b: Block => consensusModule.id(b) sameElements consensusModule.id(this)
     case _ => false
   }
 }
@@ -98,9 +102,9 @@ object Block extends ScorexLogging {
   type BlockId = Array[Byte]
 
   //TODO BytesParseable[Block] ??
-  def parseBytes[CDT  <: BasicConsensusBlockData, TDT, TX <: Transaction](bytes: Array[Byte])
-                                             (implicit consModule: ConsensusModule[CDT, TX],
-                                              transModule: TransactionModule[TDT, TX]): Try[Block[TX]] = Try {
+  def parseBytes[TMOD <: TransactionModule](bytes: Array[Byte])
+                                         (implicit consModule: ConsensusModule[TMOD],
+                                          transModule: TMOD): Try[Block] = Try {
 
     val version = bytes.head
 
@@ -112,28 +116,28 @@ object Block extends ScorexLogging {
     val cBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
     position += 4
     val cBytes = bytes.slice(position, position + cBytesLength)
-    val consBlockField = consModule.parseBytes(cBytes).get
+    val consBlockField = consModule.builder.parseBytes(cBytes).get
     position += cBytesLength
 
     val tBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
     position += 4
     val tBytes = bytes.slice(position, position + tBytesLength)
-    val txBlockField = transModule.parseBytes(tBytes).get
+    val txBlockField = transModule.builder.parseBytes(tBytes).get
     position += tBytesLength
 
-    new Block[TX] {
+    new Block {
 
-      override type ConsensusDataType = CDT
-      override type TransactionDataType = TDT
+      override type TM = TMOD
+      override type CM = ConsensusModule[TMOD]
 
-      override val transactionDataField: BlockField[TransactionDataType] = txBlockField
+      override val transactionDataField = txBlockField.asInstanceOf[BlockField[TransactionDataType]]
 
-      override implicit val consensusModule: ConsensusModule[ConsensusDataType, TX] = consModule
-      override implicit val transactionModule: TransactionModule[TransactionDataType, TX] = transModule
+      override implicit val consensusModule = consModule
+      override implicit val transactionModule = transModule
 
       override val versionField: ByteBlockField = ByteBlockField("version", version)
 
-      override val consensusDataField: BlockField[ConsensusDataType] = consBlockField
+      override val consensusDataField = consBlockField.asInstanceOf[BlockField[ConsensusDataType]]
 
       override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
     }
@@ -143,39 +147,39 @@ object Block extends ScorexLogging {
     Failure(t)
   }
 
-  def build[CDT <: BasicConsensusBlockData, TT, TDT, TX <: Transaction](version: Byte,
-                                             timestamp: Long,
-                                             consensusData: CDT,
-                                             transactionData: TDT)
-                                            (implicit consModule: ConsensusModule[CDT, TX],
-                                             transModule: TransactionModule[TDT, TX]): Block[TX] = {
-    new Block[TX] {
-      override type ConsensusDataType = CDT
-      override type TransactionDataType = TDT
+  def build[TMo <: TransactionModule, CMo <: ConsensusModule[TMo]](version: Byte,
+                                                                   timestamp: Long,
+                                                                   consensusData: CMo#ConsensusBlockData,
+                                                                   transactionData: TMo#TBD)
+                                                                  (implicit consModule: CMo,
+                                                                   transModule: TMo): Block = {
+    new Block {
 
-      override implicit val transactionModule: TransactionModule[TDT, TX] = transModule
-      override implicit val consensusModule: ConsensusModule[CDT, TX] = consModule
+      override type TM = TMo
+      override type CM = CMo
+
+      override implicit val transactionModule: TM = transModule
+      override implicit val consensusModule: CM = consModule
 
       override val versionField: ByteBlockField = ByteBlockField("version", version)
 
-      override val transactionDataField: BlockField[TDT] = transModule.formBlockData(transactionData)
+      override val transactionDataField = transactionModule.builder.formBlockData(transactionData.asInstanceOf[transactionModule.TBD])
 
-      override val consensusDataField: BlockField[CDT] = consensusModule.formBlockData(consensusData)
+      override val consensusDataField = consensusModule.builder.formBlockData(consensusData.asInstanceOf[consensusModule.ConsensusBlockData])
       override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
     }
   }
 
-  def genesis[CDT <: BasicConsensusBlockData, TDT, TX <: Transaction](timestamp: Long = 0L)(implicit consModule: ConsensusModule[CDT, TX],
-                                                                 transModule: TransactionModule[TDT, TX]): Block[TX] = new Block[TX] {
-    override type ConsensusDataType = CDT
-    override type TransactionDataType = TDT
+  def genesis[TMOD <: TransactionModule](timestamp: Long = 0L)(implicit transModule: TMOD, consModule: ConsensusModule[TMOD]): Block = new Block {
+    override type TM = TMOD
+    override type CM = consModule.type
 
-    override implicit val transactionModule: TransactionModule[TDT, TX] = transModule
-    override implicit val consensusModule: ConsensusModule[CDT, TX] = consModule
+    override implicit val transactionModule: TM = transModule
+    override implicit val consensusModule: CM = consModule
 
     override val versionField: ByteBlockField = ByteBlockField("version", 1)
-    override val transactionDataField: BlockField[TDT] = transactionModule.genesisData
-    override val consensusDataField: BlockField[CDT] = consensusModule.genesisData
+    override val transactionDataField = transactionModule.builder.genesisData
+    override val consensusDataField = consensusModule.builder.genesisData
 
     override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
   }

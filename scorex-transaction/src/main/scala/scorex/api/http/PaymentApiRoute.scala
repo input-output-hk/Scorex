@@ -15,7 +15,7 @@ import scala.util.Try
 
 @Path("/payment")
 @Api(value = "/payment", description = "Payment operations.", position = 1)
-case class PaymentApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
+case class PaymentApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   // TODO asInstanceOf

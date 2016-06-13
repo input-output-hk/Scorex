@@ -8,7 +8,6 @@ import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.{LagonakiTransaction, AccountTransaction}
 import scorex.transaction.state.LagonakiState
 
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
@@ -18,7 +17,7 @@ import scala.util.{Success, Try}
 
 @Path("/transactions")
 @Api(value = "/transactions", description = "Information about transactions")
-case class TransactionsApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
+case class TransactionsApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
   //todo: asInstanceOf, also ugly & dangerous casting
@@ -74,7 +73,7 @@ case class TransactionsApiRoute(override val application: Application[LagonakiTr
             state.included(sig, None) match {
               case Some(h) =>
                 Try {
-                  val block = application.blockStorage.history.asInstanceOf[StoredBlockchain[AccountTransaction]].blockAt(h).get
+                  val block = application.blockStorage.history.asInstanceOf[StoredBlockchain].blockAt(h).get
                   val tx = block.transactions.filter(_.proof.bytes sameElements sig).head
                   tx.json
                 }.getOrElse(Json.obj("status" -> "error", "details" -> "Internal error"))

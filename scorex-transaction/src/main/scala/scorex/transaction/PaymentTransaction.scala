@@ -4,31 +4,26 @@ import java.util
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import play.api.libs.json.{JsObject, Json}
-import scorex.transaction.account.Account
 import scorex.crypto.encode.Base58
 import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
-import scorex.transaction.box.{PublicKeyProposition, PublicKey25519Proposition}
+import scorex.transaction.account.PublicKey25519NoncedBox
+import scorex.transaction.box.{Box, PublicKeyProposition, PublicKey25519Proposition}
 import scala.util.Try
 
-case class PaymentTransaction(override val senders: Traversable[PublicKey25519Proposition],
-                              override val recipients: Traversable[PublicKey25519Proposition],
+case class PaymentTransaction(override val sender: PublicKey25519NoncedBox,
+                              override val recipient: PublicKey25519NoncedBox,
+                              override val txnonce : Int,
                               override val amount: Long,
                               override val fee: Long,
                               override val timestamp: Long,
                               override val signature: Array[Byte])
-  extends LagonakiTransaction(TransactionType.PaymentTransaction, recipients, amount, fee, timestamp, signature) {
+  extends LagonakiTransaction(TransactionType.PaymentTransaction, sender, recipient, txnonce, amount, fee, timestamp, signature) {
 
   import scorex.transaction.LagonakiTransaction._
   import scorex.transaction.PaymentTransaction._
 
   override lazy val dataLength = TypeLength + BaseLength
-
-  require(senders.size == 1)
-  require(recipients.size == 1)
-
-  lazy val sender = senders.head
-  lazy val recipient = recipients.head
 
   override lazy val json: JsObject = jsonBase() ++ Json.obj(
     "sender" -> sender.address,
@@ -37,7 +32,7 @@ case class PaymentTransaction(override val senders: Traversable[PublicKey25519Pr
   )
 
   override lazy val messageToSign: Array[Byte] = {
-    val typeBytes = Array(TypeId.toByte)
+    val typeBytes = Array(TransactionType.PaymentTransaction.id.toByte)
 
     val timestampBytes = Longs.toByteArray(timestamp)
     val amountBytes = Longs.toByteArray(amount)
@@ -48,11 +43,7 @@ case class PaymentTransaction(override val senders: Traversable[PublicKey25519Pr
       feeBytes)
   }
 
-  override lazy val correctAuthorship: Boolean = {
-    val data = signatureData(sender, recipient, amount, fee, timestamp)
-    EllipticCurveImpl.verify(signature, data, paymentSender.publicKey)
-  }
-
+  /*
   override def validate: ValidationResult.Value =
     if (!PublicKeyProposition.isValidAddress(recipient.address)) {
       ValidationResult.InvalidAddress //CHECK IF RECIPIENT IS VALID ADDRESS
@@ -75,8 +66,8 @@ case class PaymentTransaction(override val senders: Traversable[PublicKey25519Pr
     } else 0
   }
 
-  override def balanceChanges(): Seq[(Account, Long)] =
-    Seq((paymentSender, -amount - fee), (recipient, amount))
+  override def balanceChanges(): Seq[(PublicKey25519Proposition, Long)] =
+    Seq((sender, -amount - fee), (recipient, amount))*/
 }
 
 object PaymentTransaction extends BytesParseable[PaymentTransaction] {
@@ -88,10 +79,10 @@ object PaymentTransaction extends BytesParseable[PaymentTransaction] {
   private val SignatureLength = 64
   private val BaseLength = TimestampLength + SenderLength + RecipientLength + AmountLength + FeeLength + SignatureLength
 
-  def apply(sender: PublicKey25519Proposition, recipient: Account,
-            amount: Long, fee: Long, timestamp: Long): PaymentTransaction = {
-    val sig = generateSignature(sender, recipient, amount, fee, timestamp)
-    PaymentTransaction(sender, recipient, amount, fee, timestamp, sig)
+  def apply(sender: PublicKey25519Proposition, recipient: PublicKey25519Proposition,
+            txnonce: Int, amount: Long, fee: Long, timestamp: Long): PaymentTransaction = {
+    val sig = generateSignature(sender, recipient, txnonce, amount, fee, timestamp)
+    PaymentTransaction(sender, recipient, txnonce, amount, fee, timestamp, sig)
   }
 
   def parseBytes(data: Array[Byte]): Try[PaymentTransaction] = Try {
@@ -130,12 +121,12 @@ object PaymentTransaction extends BytesParseable[PaymentTransaction] {
     PaymentTransaction(sender, recipient, amount, fee, timestamp, signatureBytes)
   }
 
-  def generateSignature(sender: PrivateKeyAccount, recipient: Account,
+  def generateSignature(sender: PrivateKeyAccount, recipient: PublicKeyProposition,
                         amount: Long, fee: Long, timestamp: Long): Array[Byte] = {
     EllipticCurveImpl.sign(sender, signatureData(sender, recipient, amount, fee, timestamp))
   }
 
-  private def signatureData(sender: PublicKeyAccount, recipient: Account,
+  private def signatureData(sender: PublicKey25519Proposition, recipient: PublicKey25519Proposition,
                             amount: Long, fee: Long, timestamp: Long): Array[Byte] = {
     val typeBytes = Ints.toByteArray(TransactionType.PaymentTransaction.id)
     val timestampBytes = Longs.toByteArray(timestamp)

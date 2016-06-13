@@ -6,8 +6,6 @@ import scorex.block.{Block, BlockField}
 import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.settings.Settings
-import scorex.transaction.SimpleTransactionModule.StoredInBlock
-import scorex.transaction.account.Account
 import scorex.transaction.box.PublicKey25519Proposition
 import scorex.transaction.state.PrivateKey25519Holder
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
@@ -21,8 +19,8 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 
-class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application[LagonakiTransaction])
-  extends TransactionModule[StoredInBlock, LagonakiTransaction] with ScorexLogging {
+class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application)
+  extends TransactionModule with ScorexLogging {
 
   import SimpleTransactionModule._
 
@@ -38,9 +36,9 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
     override val MaxRollback: Int = settings.MaxRollback
 
-    override val history: History[LagonakiTransaction] = settings.history match {
+    override val history: History = settings.history match {
       case s: String if s.equalsIgnoreCase("blockchain") =>
-        new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
+        new StoredBlockchain[SimpleTransactionModule](settings.dataDirOpt)(consensusModule, instance)
       case s: String if s.equalsIgnoreCase("blocktree") =>
         new StoredBlockTree(settings.dataDirOpt, MaxRollback)(consensusModule, instance)
       case s =>
@@ -78,7 +76,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   override def formBlockData(transactions: StoredInBlock): TransactionsBlockField = TransactionsBlockField(transactions)
 
   //TODO asInstanceOf
-  override def transactions(block: Block[LagonakiTransaction]): StoredInBlock =
+  override def transactions(block: Block): StoredInBlock =
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
@@ -112,7 +110,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     case _ => throw new Error("Wrong kind of transaction!")
   }
 
-  def createPayment(payment: Payment, wallet: Wallet[_, _]): Option[PaymentTransaction] = {
+  def createPayment(payment: Payment, wallet: Wallet[_]): Option[PaymentTransaction] = {
     wallet.privateKeyAccount(payment.sender).map { sender =>
       createPayment(sender, new Account(payment.recipient), payment.amount, payment.fee)
     }
@@ -150,7 +148,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   }
 
   //todo: safe casting from shapeless?
-  override def isValid(block: Block[LagonakiTransaction]): Boolean = {
+  override def isValid(block: Block): Boolean = {
     block.transactions match {
       case transactions: Seq[LagonakiTransaction] =>
         blockStorage.state.areValid(transactions, blockStorage.history.heightOf(block))

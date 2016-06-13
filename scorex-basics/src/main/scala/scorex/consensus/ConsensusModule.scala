@@ -1,9 +1,9 @@
 package scorex.consensus
 
 import play.api.libs.json.Json
-import scorex.block.{BlockIdField, Block, BlockProcessingModule}
+import scorex.block.{BlockProcessingModule, BlockIdField, Block}
 import scorex.transaction.box.Proposition
-import scorex.transaction.{Transaction, TransactionModule}
+import scorex.transaction.TransactionModule
 import shapeless.{Nat, Sized}
 import scala.concurrent.Future
 
@@ -32,18 +32,23 @@ trait SingleProducerConsensusBlockData extends BasicConsensusBlockData {
 }
 
 
-trait ConsensusModule[ConsensusBlockData <: BasicConsensusBlockData, TX <: Transaction] extends BlockProcessingModule[ConsensusBlockData] {
+trait ConsensusModule[TM <: TransactionModule] {
 
+  type ConsensusBlockData <: BasicConsensusBlockData
+  val builder: BlockProcessingModule[ConsensusBlockData]
+
+  type Prop = TM#P
   type BlockId = Array[Byte]
+
   val BlockIdLength: Int
 
-  def isValid[TransactionalBlockData](block: Block[TX])(implicit transactionModule: TransactionModule[TransactionalBlockData, TX]): Boolean
+  def isValid[TransactionalBlockData](block: Block)(implicit transactionModule: TransactionModule): Boolean
 
   /**
     * Fees could go to a single miner(forger) usually, but can go to many parties, e.g. see
     * Bentov's Proof-of-Activity proposal http://eprint.iacr.org/2014/452.pdf
     */
-  def feesDistribution(block: Block[TX]): Map[Proposition, Long]
+  def feesDistribution(block: Block): Map[Prop, Long]
 
   /**
     * Get block producers(miners/forgers). Usually one miner produces a block, but in some proposals not
@@ -51,18 +56,18 @@ trait ConsensusModule[ConsensusBlockData <: BasicConsensusBlockData, TX <: Trans
     * @param block
     * @return
     */
-  def producers(block: Block[TX]): Seq[Proposition]
+  def producers(block: Block): Seq[Prop]
 
-  def blockScore(block: Block[TX])(implicit transactionModule: TransactionModule[_, TX]): BigInt
+  def blockScore(block: Block)(implicit transactionModule: TransactionModule): BigInt
 
-  def generateNextBlock[TransactionalBlockData](transactionModule: TransactionModule[TransactionalBlockData, TX]): Future[Option[Block[TX]]]
+  def generateNextBlock[TransactionalBlockData](transactionModule: TransactionModule): Future[Option[Block]]
 
-  def generateNextBlocks[TransactionalBlockData](transactionModule: TransactionModule[TransactionalBlockData, TX]): Future[Seq[Block[TX]]]
+  def generateNextBlocks[TransactionalBlockData](transactionModule: TransactionModule): Future[Seq[Block]]
     //Future.sequence(accounts.map(acc => generateNextBlock(acc))).map(_.flatten)
 
-  def consensusBlockData(block: Block[TX]): ConsensusBlockData
+  def consensusBlockData(block: Block): ConsensusBlockData
 
-  def id(block: Block[TX]): BlockId
+  def id(block: Block): BlockId
 
-  def parentId(block: Block[TX]): BlockId
+  def parentId(block: Block): BlockId
 }

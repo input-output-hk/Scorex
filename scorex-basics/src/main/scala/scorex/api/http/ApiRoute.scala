@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 trait ApiRoute extends Directives with CommonApiFunctions {
-  val application: Application[_]
+  val application: Application
   val context: ActorRefFactory
   val route: Route
 

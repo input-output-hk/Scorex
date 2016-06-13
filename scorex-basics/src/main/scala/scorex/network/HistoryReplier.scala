@@ -7,7 +7,7 @@ import scorex.network.message.Message
 import scorex.transaction.Transaction
 import scorex.utils.ScorexLogging
 
-class HistoryReplier[TX <: Transaction](application: Application[TX]) extends ViewSynchronizer with ScorexLogging {
+class HistoryReplier(application: Application) extends ViewSynchronizer with ScorexLogging {
 
   import application.basicMessagesSpecsRepo._
 

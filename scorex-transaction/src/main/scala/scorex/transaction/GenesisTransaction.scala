@@ -6,28 +6,26 @@ import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
 import scorex.serialization.BytesParseable
 import scorex.transaction.LagonakiTransaction.TransactionType
-import scorex.transaction.box.{PublicKeyProposition, PublicKey25519Proposition}
+import scorex.transaction.account.PublicKey25519NoncedBox
+import scorex.transaction.box.{PublicKey25519Proposition, PublicKeyProposition}
+import shapeless.Sized
 
 import scala.util.Try
 
+object GodAccount extends PublicKey25519NoncedBox(Sized.wrap(Array.fill(32)(0: Byte)), 0, 0L)
 
-case class GenesisTransaction(override val recipients: Traversable[PublicKey25519Proposition],
+
+case class GenesisTransaction(override val recipient: PublicKey25519Proposition,
                               override val amount: Long,
                               override val timestamp: Long)
-  extends LagonakiTransaction(TransactionType.GenesisTransaction, recipients, amount, 0, timestamp,
-    GenesisTransaction.generateSignature(recipients.head, amount, timestamp)) {
+  extends LagonakiTransaction(TransactionType.GenesisTransaction, sender = GodAccount.lock, recipient, 0, amount, 0, timestamp,
+    GenesisTransaction.generateSignature(recipient, amount, timestamp)) {
 
   import scorex.transaction.GenesisTransaction._
   import scorex.transaction.LagonakiTransaction._
 
-  require(recipients.size == 1)
-
-  lazy val recipient = recipients.head
-
-  override lazy val senders: Option[PublicKey25519Proposition] = None
-
   override lazy val json: JsObject =
-    jsonBase() ++ Json.obj("recipient" -> recipients.head.address, "amount" -> amount.toString)
+    jsonBase() ++ Json.obj("recipient" -> recipient.address, "amount" -> amount.toString)
 
   override lazy val messageToSign: Array[Byte] = {
     val typeBytes = Array(TransactionType.GenesisTransaction.id.toByte)
@@ -57,6 +55,7 @@ case class GenesisTransaction(override val recipients: Traversable[PublicKey2551
     Bytes.concat(h, h).sameElements(signature)
   } */
 
+  /*
   override def validate: ValidationResult.Value =
     if (amount < 0) {
       ValidationResult.NegativeAmount
@@ -66,7 +65,7 @@ case class GenesisTransaction(override val recipients: Traversable[PublicKey2551
 
   override def involvedAmount(account: PublicKey25519Proposition): Long = if (recipient.address.equals(account.address)) amount else 0
 
-  override def balanceChanges(): Seq[(PublicKey25519Proposition, Long)] = Seq((recipient, amount))
+  override def balanceChanges(): Seq[(PublicKey25519Proposition, Long)] = Seq((recipient, amount))*/
 }
 
 

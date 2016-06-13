@@ -9,7 +9,7 @@ import shapeless.Sized
 
 import scala.util.Try
 
-trait SecretHolder[P <: Proposition, PR <: Proof] extends BytesSerializable {
+trait SecretHolder[P <: Proposition, PR <: Proof[P]] extends BytesSerializable {
   type Secret
 
   val publicCommitment: P
@@ -24,17 +24,16 @@ trait SecretHolder[P <: Proposition, PR <: Proof] extends BytesSerializable {
 }
 
 case class PrivateKey25519Holder(override val secret: PrivateKey25519,
-                           override val publicCommitment: PublicKey25519Proposition) extends SecretHolder[PublicKey25519Proposition, Signature25519] {
+                                 override val publicCommitment: PublicKey25519Proposition) extends SecretHolder[PublicKey25519Proposition, Signature25519] {
   override type Secret = PrivateKey25519
 
   override def sign(message: Array[Byte]): Signature25519 =
-    Signature25519(new Curve25519().sign(secret.unsized, message))
+    Signature25519(Curve25519.sign(secret.unsized, message))
 
   override def owns(box: Box[PublicKey25519Proposition]): Boolean = box.lock.publicKey.unsized sameElements publicCommitment.publicKey.unsized
 
-  override def verify(message: Array[Byte], signature: Signature25519): Boolean = {
-    new Curve25519().verify(signature.signature, message, publicCommitment.publicKey.unsized)
-  }
+  override def verify(message: Array[Byte], signature: Signature25519): Boolean =
+    Curve25519.verify(signature.signature, message, publicCommitment.publicKey.unsized)
 
   override def bytes: Array[Byte] = secret.unsized ++ publicCommitment.publicKey.unsized
 }

@@ -12,7 +12,7 @@ import scorex.transaction.{Transaction, BlockChain}
 
 @Path("/blocks")
 @Api(value = "/blocks", description = "Info about blockchain & individual blocks within it")
-case class BlocksApiRoute[TX <: Transaction](override val application: Application[TX])(implicit val context: ActorRefFactory)
+case class BlocksApiRoute[TX <: Transaction[_]](override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet
@@ -46,7 +46,7 @@ case class BlocksApiRoute[TX <: Transaction](override val application: Applicati
       getJsonRoute {
         withBlock(history, encodedSignature) { block =>
           history match {
-            case blockchain: BlockChain[TX] =>
+            case blockchain: BlockChain =>
               blockchain.children(block).headOption.map(_.json).getOrElse(
                 Json.obj("status" -> "error", "details" -> "No child blocks"))
             case _ =>
@@ -108,7 +108,7 @@ case class BlocksApiRoute[TX <: Transaction](override val application: Applicati
     path("at" / IntNumber) { case height =>
       getJsonRoute {
         history match {
-          case blockchain: BlockChain[TX] =>
+          case blockchain: BlockChain =>
             blockchain
               .blockAt(height)
               .map(_.json)
@@ -130,7 +130,7 @@ case class BlocksApiRoute[TX <: Transaction](override val application: Applicati
     path("seq" / IntNumber / IntNumber) { case (start, end) =>
       getJsonRoute {
         history match {
-          case blockchain: BlockChain[TX] =>
+          case blockchain: BlockChain =>
             JsArray(
               (start to end).map { height =>
                 blockchain.blockAt(height).map(_.json).getOrElse(Json.obj("error" -> s"No block at height $height"))

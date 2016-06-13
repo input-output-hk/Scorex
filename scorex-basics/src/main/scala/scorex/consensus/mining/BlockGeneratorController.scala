@@ -12,7 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Success
 
-class BlockGeneratorController(application: Application[_]) extends Actor with ScorexLogging {
+class BlockGeneratorController(application: Application) extends Actor with ScorexLogging {
 
   val threads = application.settings.mininigThreads
   val FailedGenerationDelay: FiniteDuration = Math.max(10, application.settings.blockGenerationDelay.toSeconds).seconds

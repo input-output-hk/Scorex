@@ -4,13 +4,13 @@ import scorex.crypto.authds.storage.StorageType
 import scorex.crypto.authds.{AuthenticatedDictionary, DataProof}
 import scorex.crypto.hash.CryptographicHash
 import scorex.transaction.box.Proposition
-import scorex.transaction.state.BoxMinimalState
+import scorex.transaction.state.MinimalState
 
 import scala.util.Try
 
-//for now only boxed state could be authenticated
+
 trait AuthenticatedBoxMinimalState[L <: Proposition, HashFunction <: CryptographicHash]
-  extends BoxMinimalState[L] {
+  extends MinimalState[L] {
 
   type ElementProof <: DataProof
   type Storage <: StorageType

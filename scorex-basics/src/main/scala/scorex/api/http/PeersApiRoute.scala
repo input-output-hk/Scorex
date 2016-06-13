@@ -12,14 +12,12 @@ import scorex.app.Application
 import scorex.network.Handshake
 import scorex.network.NetworkController.ConnectTo
 import scorex.network.peer.{PeerInfo, PeerManager}
-import scorex.transaction.Transaction
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
 @Path("/peers")
 @Api(value = "/peers", description = "Get info about peers", position = 2)
-case class PeersApiRoute(override val application: Application[_ <: Transaction])(implicit val context: ActorRefFactory)
+case class PeersApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute {
 
   override lazy val route =

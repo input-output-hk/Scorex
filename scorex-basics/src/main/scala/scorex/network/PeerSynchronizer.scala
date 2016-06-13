@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 
-class PeerSynchronizer(application: Application[_]) extends ViewSynchronizer with ScorexLogging {
+class PeerSynchronizer(application: Application) extends ViewSynchronizer with ScorexLogging {
 
   import application.basicMessagesSpecsRepo._
 

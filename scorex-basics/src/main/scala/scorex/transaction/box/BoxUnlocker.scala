@@ -1,6 +1,9 @@
 package scorex.transaction.box
 
-trait BoxUnlocker[L <: Proposition] {
-  val closedBox: Box[L]
-  val key: BoxProof[L]
+import scorex.transaction.StateChangeReason
+import scorex.transaction.proof.Proof
+
+trait BoxUnlocker[P <: Proposition] extends StateChangeReason {
+  val closedBoxId: Array[Byte]
+  val boxKey: Proof[P]
 }

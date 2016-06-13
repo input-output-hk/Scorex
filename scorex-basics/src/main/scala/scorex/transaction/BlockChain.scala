@@ -4,20 +4,20 @@ import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.utils.ScorexLogging
 
-trait BlockChain[TX <: Transaction] extends History[TX] with ScorexLogging {
+trait BlockChain extends History with ScorexLogging {
 
-  def blockAt(height: Int): Option[Block[TX]]
+  def blockAt(height: Int): Option[Block]
 
-  def genesisBlock: Option[Block[TX]] = blockAt(1)
+  def genesisBlock: Option[Block] = blockAt(1)
 
-  override def parent(block: Block[TX], back: Int = 1): Option[Block[TX]] = {
+  override def parent(block: Block, back: Int = 1): Option[Block] = {
     require(back > 0)
     heightOf(block.parentId).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
   }
 
-  private[transaction] def discardBlock(): BlockChain[TX]
+  private[transaction] def discardBlock(): BlockChain
 
-  override def lastBlocks(howMany: Int): Seq[Block[TX]] =
+  override def lastBlocks(howMany: Int): Seq[Block] =
     (Math.max(1, height() - howMany + 1) to height()).flatMap(blockAt).reverse
 
   def lookForward(parentSignature: BlockId, howMany: Int): Seq[BlockId] =
@@ -25,7 +25,7 @@ trait BlockChain[TX <: Transaction] extends History[TX] with ScorexLogging {
       (h + 1).to(Math.min(height(), h + howMany: Int)).flatMap(blockAt).map(_.id)
     }.getOrElse(Seq())
 
-  def children(block: Block[TX]): Seq[Block[TX]]
+  def children(block: Block): Seq[Block]
 
-  override lazy val genesis: Block[TX] = blockAt(1).get
+  override lazy val genesis: Block = blockAt(1).get
 }

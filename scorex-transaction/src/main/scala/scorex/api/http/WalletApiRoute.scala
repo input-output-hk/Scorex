@@ -8,11 +8,10 @@ import io.swagger.annotations._
 import play.api.libs.json.Json
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.{LagonakiTransaction, AccountTransaction}
 
 @Path("/wallet")
 @Api(value = "/wallet", description = "Wallet-related calls")
-case class WalletApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
+case class WalletApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet

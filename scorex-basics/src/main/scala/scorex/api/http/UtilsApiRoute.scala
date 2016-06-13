@@ -14,7 +14,7 @@ import scorex.transaction.Transaction
 
 @Path("/utils")
 @Api(value = "/utils", description = "Useful functions", position = 3, produces = "application/json")
-case class UtilsApiRoute(override val application: Application[_ <: Transaction])(implicit val context: ActorRefFactory) extends ApiRoute {
+case class UtilsApiRoute(override val application: Application)(implicit val context: ActorRefFactory) extends ApiRoute {
   val SeedSize = 32
 
   private def seed(length: Int): JsValue = {

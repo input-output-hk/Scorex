@@ -1,59 +1,26 @@
 package scorex.transaction.state
 
 import scorex.block.Block
-import scorex.transaction.box.Proposition
-import scorex.transaction.{BoxTransaction, AccountTransaction, Transaction}
+import scorex.transaction.Transaction
+import scorex.transaction.box.{Box, Proposition}
 import scala.util.Try
 
 /**
   * Abstract functional interface of state which is a result of a sequential blocks applying
   */
 
-sealed trait MinimalState[TX <: Transaction] {
+trait MinimalState[P <: Proposition] {
   val version: Int
 
-  private[transaction] def processBlock(block: Block[TX]): Try[MinimalState[TX]]
+  private[transaction] def processBlock(block: Block): Try[MinimalState[P]]
 
-  def isValid(tx: TX): Boolean
+  def isValid(tx: Transaction[P]): Boolean = tx.isValid(this)
 
-  def areValid(txs: Seq[TX], height: Option[Int] = None): Boolean
+  def areValid(txs: Seq[Transaction[P]]): Boolean = txs.forall(isValid)
 
-  def validate(txs: Seq[TX], height: Option[Int] = None): Seq[TX]
+  def filterValid(txs: Seq[Transaction[P]]): Seq[Transaction[P]] = txs.filter(isValid)
 
-  private[transaction] def rollbackTo(height: Int): Try[MinimalState[TX]]
-}
+  private[transaction] def rollbackTo(height: Int): Try[MinimalState[P]]
 
-
-trait AccountMinimalState[ATX <: AccountTransaction[_]] extends MinimalState[ATX] {
-
-  override def validate(txs: Seq[ATX], height: Option[Int] = None): Seq[ATX]
-
-  override def isValid(tx: ATX): Boolean = areValid(Seq(tx))
-
-  override def areValid(txs: Seq[ATX], height: Option[Int] = None): Boolean = validate(txs, height).size == txs.size
-
-  def included(signature: Array[Byte], heightOpt: Option[Int]): Option[Int]
-
-  def included(transaction: ATX, heightOpt: Option[Int] = None): Option[Int] =
-    included(transaction.proof.bytes, heightOpt)
-}
-
-
-
-trait BoxMinimalState[Prop <: Proposition] extends MinimalState[BoxTransaction[Prop]] {
-
-  /**
-    * The only question minimal box state could answer is "whether a box is closed?",
-    * as it stores closed boxes only
-    * Please note the answer is "no" even if a box never existed
-    */
-  def boxIsClosed(boxId: Array[Byte]): Boolean
-
-  override private[transaction] def processBlock(block: Block[BoxTransaction[Prop]]): Try[BoxMinimalState[Prop]]
-
-  override def isValid(tx: BoxTransaction[Prop]): Boolean
-
-  override def areValid(txs: Seq[BoxTransaction[Prop]], height: Option[Int] = None): Boolean
-
-  override def validate(txs: Seq[BoxTransaction[Prop]], height: Option[Int] = None): Seq[BoxTransaction[Prop]]
+  def closedBox(boxId: Array[Byte]): Option[Box[P]]
 }

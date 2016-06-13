@@ -19,7 +19,7 @@ import scala.util.Try
   * function has been used instead, even in PoW systems.
   */
 
-trait History[TX <: Transaction] {
+trait History {
 
   import scorex.transaction.History.BlockchainScore
 
@@ -40,19 +40,19 @@ trait History[TX <: Transaction] {
     */
   def isEmpty: Boolean = height() == 0
 
-  def contains(block: Block[TX]): Boolean = contains(block.id)
+  def contains(block: Block): Boolean = contains(block.id)
 
   def contains(id: BlockId): Boolean = blockById(id).isDefined
 
-  def blockById(blockId: Block.BlockId): Option[Block[TX]]
+  def blockById(blockId: Block.BlockId): Option[Block]
 
-  def blockById(blockId: String): Option[Block[TX]]
+  def blockById(blockId: String): Option[Block]
     = Base58.decode(blockId).toOption.flatMap(blockById)
 
   /**
     * Height of a block if it's in the blocktree
     */
-  def heightOf(block: Block[TX]): Option[Int] = heightOf(block.id)
+  def heightOf(block: Block): Option[Int] = heightOf(block.id)
 
   def heightOf(blockId: Block.BlockId): Option[Int]
 
@@ -63,20 +63,20 @@ trait History[TX <: Transaction] {
     * @param block - block to append
     * @return Blocks to process in state
     */
-  private[transaction] def appendBlock(block: Block[TX]): Try[Seq[Block[TX]]]
+  private[transaction] def appendBlock(block: Block): Try[Seq[Block]]
 
-  def parent(block: Block[TX], back: Int = 1): Option[Block[TX]]
+  def parent(block: Block, back: Int = 1): Option[Block]
 
-  def confirmations(block: Block[TX]): Option[Int] = heightOf(block).map(height() - _)
+  def confirmations(block: Block): Option[Int] = heightOf(block).map(height() - _)
 
-  def generatedBy(id: Proposition): Seq[Block[TX]]
+  def generatedBy(id: Proposition): Seq[Block]
 
   /**
     * Block with maximum blockchain score
     */
-  def lastBlock: Block[TX] = lastBlocks(1).head
+  def lastBlock: Block = lastBlocks(1).head
 
-  def lastBlocks(howMany: Int): Seq[Block[TX]]
+  def lastBlocks(howMany: Int): Seq[Block]
 
   def lastBlockIds(howMany: Int): Seq[BlockId] = lastBlocks(howMany).map(b => b.id)
 
@@ -88,11 +88,11 @@ trait History[TX <: Transaction] {
   /**
     * Average delay in milliseconds between last $blockNum blocks starting from $block
     */
-  def averageDelay(block: Block[TX], blockNum: Int): Try[Long] = Try {
+  def averageDelay(block: Block, blockNum: Int): Try[Long] = Try {
     (block.timestampField.value - parent(block, blockNum).get.timestampField.value) / blockNum
   }
 
-  val genesis: Block[TX]
+  val genesis: Block
 }
 
 object History {

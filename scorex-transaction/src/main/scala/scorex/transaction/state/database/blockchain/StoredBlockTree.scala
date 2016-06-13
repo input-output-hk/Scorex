@@ -8,7 +8,6 @@ import scorex.block.Block.BlockId
 import scorex.consensus.ConsensusModule
 import scorex.crypto.encode.Base58
 import scorex.transaction.BlockStorage._
-import scorex.transaction.account.Account
 import scorex.transaction.{Transaction, BlockTree, TransactionModule}
 import scorex.utils.ScorexLogging
 
@@ -19,25 +18,25 @@ import scala.util.{Failure, Success, Try}
   * TODO fix
   * If no datafolder provided, blocktree lives in RAM (useful for tests)
   */
-class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollback: Int)
-                     (implicit consensusModule: ConsensusModule[_, TX],
-                      transactionModule: TransactionModule[_, TX])
-  extends BlockTree[TX] with ScorexLogging {
+class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], MaxRollback: Int)
+                     (implicit consensusModule: ConsensusModule[_],
+                      transactionModule: TransactionModule)
+  extends BlockTree with ScorexLogging {
 
   trait BlockTreePersistence {
     type Score = BigInt
     type Height = Int
-    type StoredBlock = (Block[TX], Score, Height)
+    type StoredBlock = (Block, Score, Height)
 
     def writeBlock(block: Block[TX]): Try[Boolean]
 
     def readBlock(id: BlockId): Option[StoredBlock]
 
-    def readBlock(block: Block[TX]): Option[StoredBlock] = readBlock(block.id)
+    def readBlock(block: Block): Option[StoredBlock] = readBlock(block.id)
 
-    def filter(f: Block[TX] => Boolean): Seq[StoredBlock] = {
+    def filter(f: Block => Boolean): Seq[StoredBlock] = {
       @tailrec
-      def iterate(b: StoredBlock, f: Block[TX] => Boolean, acc: Seq[StoredBlock] = Seq.empty): Seq[StoredBlock] = {
+      def iterate(b: StoredBlock, f: Block => Boolean, acc: Seq[StoredBlock] = Seq.empty): Seq[StoredBlock] = {
         val newAcc: Seq[StoredBlock] = if (f(b._1)) b +: acc else acc
         readBlock(b._1.parentId) match {
           case Some(parent) => iterate(parent, f, newAcc)
@@ -47,7 +46,7 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
       iterate(readBlock(getBestBlockId).get, f)
     }
 
-    def exists(block: Block[TX]): Boolean = exists(block.id)
+    def exists(block: Block): Boolean = exists(block.id)
 
     def exists(blockId: BlockId): Boolean = readBlock(blockId).isDefined
 
@@ -182,7 +181,7 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
 
   override def height(): Int = blockStorage.bestBlock.map(_._3).getOrElse(0)
 
-  override private[transaction] def appendBlock(block: Block[TX]): Try[Seq[Block[TX]]] = {
+  override private[transaction] def appendBlock(block: Block): Try[Seq[Block]] = {
     val parent = block.parentId
     val h = height()
     if ((h == 0) || (lastBlock.id sameElements block.parentId)) {
@@ -215,15 +214,15 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
 
   override def heightOf(blockId: BlockId): Option[Int] = blockStorage.readBlock(blockId).map(_._3)
 
-  override def blockById(blockId: BlockId): Option[Block[TX]] = blockStorage.readBlock(blockId).map(_._1)
+  override def blockById(blockId: BlockId): Option[Block] = blockStorage.readBlock(blockId).map(_._1)
 
-  override def generatedBy(account: Account): Seq[Block[TX]] = blockStorage.filter { b =>
+  override def generatedBy(account: Account): Seq[Block] = blockStorage.filter { b =>
     consensusModule.producers(b).contains(account)
   }.map(_._1)
 
-  override def lastBlock: Block[TX] = blockStorage.bestBlock.map(_._1).get
+  override def lastBlock: Block = blockStorage.bestBlock.map(_._1).get
 
-  def find(block: Block[TX], limit: Int)(condition: Block[TX] => Boolean): Option[Block[TX]] = if (limit > 0) {
+  def find(block: Block, limit: Int)(condition: Block => Boolean): Option[Block] = if (limit > 0) {
     parent(block) match {
       case Some(pb) =>
         if (condition(pb)) Some(pb)
@@ -232,9 +231,9 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
     }
   } else None
 
-  def lastBlocks(block: Block[TX], howMany: Int): Seq[Block[TX]] = {
+  def lastBlocks(block: Block, howMany: Int): Seq[Block] = {
     require(howMany >= 0)
-    def loop(block: Block[TX], i: Int, acc: Seq[Block[TX]] = Seq.empty): Seq[Block[TX]] = {
+    def loop(block: Block, i: Int, acc: Seq[Block] = Seq.empty): Seq[Block] = {
       lazy val p = parent(block)
       (i, p) match {
         case (0, _) => acc
@@ -245,13 +244,13 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
     loop(block, howMany)
   }
 
-  override def lastBlocks(howMany: Int): Seq[Block[TX]] = {
+  override def lastBlocks(howMany: Int): Seq[Block] = {
     lastBlocks(lastBlock, howMany).reverse
   }
 
   override def score(): BigInt = blockStorage.bestBlock.map(_._2).getOrElse(BigInt(0))
 
-  override def parent(block: Block[TX], back: Int = 1): Option[Block[TX]] = {
+  override def parent(block: Block, back: Int = 1): Option[Block] = {
     require(back > 0)
     val p = blockStorage.readBlock(block.parentId).map(_._1)
     (back, p) match {
@@ -266,6 +265,5 @@ class StoredBlockTree[TX <: Transaction](dataFolderOpt: Option[String], MaxRollb
 
   override def contains(id: BlockId): Boolean = blockStorage.exists(id)
 
-  override lazy val genesis: Block[TX] = blockById(Block.genesis().id).get
-
+  override lazy val genesis: Block = blockById(Block.genesis().id).get
 }

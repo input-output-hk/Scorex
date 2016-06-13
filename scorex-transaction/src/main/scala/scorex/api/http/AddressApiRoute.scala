@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 
 @Path("/wallet")
 @Api(value = "/wallet/", description = "Info about wallet's accounts and other calls about addresses")
-case class AddressApiRoute(override val application: Application[LagonakiTransaction])(implicit val context: ActorRefFactory)
+case class AddressApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.wallet
@@ -244,7 +244,7 @@ case class AddressApiRoute(override val application: Application[LagonakiTransac
   }
 
   private def balanceJson(address: String, confirmations: Int) =
-    if (!Account.isValidAddress(address)) {
+    if (!PublicKeyProposition.isValidAddress(address)) {
       InvalidAddress.json
     } else {
       Json.obj(
@@ -259,13 +259,13 @@ case class AddressApiRoute(override val application: Application[LagonakiTransac
       withAuth {
         postJsonRoute {
           walletNotExists(wallet).getOrElse {
-            if (!Account.isValidAddress(address)) {
+            if (!PublicKeyProposition.isValidAddress(address)) {
               InvalidAddress.json
             } else {
               wallet.privateKeyAccount(address) match {
                 case None => WalletAddressNotExists.json
-                case Some(account) =>
-                  Try(EllipticCurveImpl.sign(account, message.getBytes(StandardCharsets.UTF_8))) match {
+                case Some(sh) =>
+                  Try(sh.sign(account, message.getBytes(StandardCharsets.UTF_8))) match {
                     case Success(signature) =>
                       val msg = if (encode) Base58.encode(message.getBytes) else message
                       Json.obj("message" -> msg,
@@ -291,7 +291,7 @@ case class AddressApiRoute(override val application: Application[LagonakiTransac
             case err: JsError =>
               WrongJson.json
             case JsSuccess(m: SignedMessage, _) =>
-              if (!Account.isValidAddress(address)) {
+              if (!PublicKeyProposition.isValidAddress(address)) {
                 InvalidAddress.json
               } else {
                 //DECODE SIGNATURE

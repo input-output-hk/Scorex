@@ -2,7 +2,7 @@ package scorex.transaction.state.database
 
 import scorex.transaction.Transaction
 
-abstract class UnconfirmedTransactionsDatabase[TX <: Transaction] {
+abstract class UnconfirmedTransactionsDatabase[TX <: Transaction[_]] {
 
   def putIfNew(tx: TX): Boolean
 

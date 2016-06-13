@@ -3,15 +3,10 @@ package scorex.transaction.box
 import com.google.common.primitives.Ints
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
+import scorex.serialization.BytesSerializable
 import shapeless.{Succ, Sized, Nat}
 
-sealed trait Proposition {
-  val encodedType: Byte
-
-  protected val specificBytes: Array[Byte]
-
-  final val bytes: Array[Byte] = Array(encodedType) ++ specificBytes
-}
+sealed trait Proposition extends BytesSerializable
 
 trait EmptyProposition extends Proposition
 
@@ -21,7 +16,7 @@ trait PublicKeyProposition extends Proposition {
   type PublicKeySize <: Nat
   val publicKey: Sized[Array[Byte], PublicKeySize]
 
-  override protected val specificBytes = publicKey.unsized
+  override val bytes = publicKey.unsized
 
   lazy val address: String = Base58.encode(id ++ calcCheckSum(id))
 
@@ -80,15 +75,13 @@ object SizedConstants {
   type Signature25519 = Nat64
 }
 
-
 //todo: a_reserve
+//todo: sigma protocol id
 sealed trait SigmaProposition extends Proposition {
   val a: Array[Byte]
-
-  override val specificBytes = a
+  val bytes = a
 }
 
 case class HeightOpenProposition(height: Int) extends Proposition {
-  override val encodedType = 0: Byte
-  override val specificBytes = Ints.toByteArray(height)
+  override val bytes = Ints.toByteArray(height)
 }

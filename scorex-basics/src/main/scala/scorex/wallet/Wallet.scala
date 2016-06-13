@@ -14,10 +14,10 @@ import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
 
 //todo: add accs txs?
-class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[File],
-                                 password: String,
-                                 seedOpt: Option[Array[Byte]])
-                                (implicit generator: SecretHolderGenerator[SH])
+class Wallet[SH <: SecretHolder[_, _]](walletFileOpt: Option[File],
+                                       password: String,
+                                       seedOpt: Option[Array[Byte]],
+                                       generator: SecretHolderGenerator[SH])
   extends ScorexLogging {
 
   private val NonceFieldName = "nonce"
