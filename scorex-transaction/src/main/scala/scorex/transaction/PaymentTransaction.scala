@@ -42,9 +42,11 @@ class PaymentTransaction(val sender: PublicKeyAccount,
     val amountBytes = Longs.toByteArray(amount)
     val feeBytes = Longs.toByteArray(fee)
 
-    Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
+    val withoutAttachment = Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
       Base58.decode(recipient.address).get, amountBytes,
-      feeBytes, signature, Ints.toByteArray(attachment.length), attachment)
+      feeBytes, signature)
+    if(attachment.length > 0) Bytes.concat(withoutAttachment, Ints.toByteArray(attachment.length), attachment)
+    else withoutAttachment
   }
 
   override lazy val signatureValid: Boolean = {
