@@ -3,14 +3,16 @@ package scorex.transaction.box
 import com.google.common.primitives.Ints
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.FastCryptographicHash._
+import scorex.crypto.signatures.Curve25519
 import scorex.serialization.BytesSerializable
-import shapeless.{Succ, Sized, Nat}
+import shapeless.{Nat, Sized, Succ}
 
 sealed trait Proposition extends BytesSerializable
 
 trait EmptyProposition extends Proposition
 
 trait PublicKeyProposition extends Proposition {
+
   import PublicKeyProposition._
 
   type PublicKeySize <: Nat
@@ -26,6 +28,9 @@ trait PublicKeyProposition extends Proposition {
     val publicKeyHash = hash(publicKey).unsized.take(IdLength)
     AddressVersion +: publicKeyHash
   }
+
+  def verify(message: Array[Byte], signature: Sized[Array[Byte], SizedConstants.Signature25519]): Boolean =
+    Curve25519.verify(signature, message, publicKey)
 }
 
 object PublicKeyProposition {
@@ -53,6 +58,14 @@ object PublicKeyProposition {
 
 trait PublicKey25519Proposition extends PublicKeyProposition {
   override type PublicKeySize = SizedConstants.Nat32
+}
+
+object PublicKey25519Proposition {
+  def apply(pubKey: Sized[Array[Byte], SizedConstants.PubKey25519]): PublicKey25519Proposition =
+    new PublicKey25519Proposition {
+      override val publicKey = pubKey
+      override val bytes: Array[Byte] = publicKey
+    }
 }
 
 object SizedConstants {

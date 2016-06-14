@@ -6,13 +6,16 @@ import scorex.block.{Block, BlockField}
 import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.settings.Settings
+import scorex.transaction.account.PublicKey25519NoncedBox
 import scorex.transaction.box.PublicKey25519Proposition
+import scorex.transaction.proof.Signature25519
 import scorex.transaction.state.PrivateKey25519Holder
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.{StoredBlockTree, StoredBlockchain, PersistentLagonakiState}
+import scorex.transaction.state.database.blockchain.{PersistentLagonakiState, StoredBlockTree, StoredBlockchain}
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
+import shapeless.Sized
 import shapeless.syntax.typeable._
 
 import scala.concurrent.duration._
@@ -110,16 +113,16 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     case _ => throw new Error("Wrong kind of transaction!")
   }
 
-  def createPayment(payment: Payment, wallet: Wallet[_,_]): Option[PaymentTransaction] = {
-    wallet.privateKeyAccount(payment.sender).map { sender =>
+  def createPayment(payment: Payment, wallet: Wallet[_, _]): Option[LagonakiTransaction] = {
+    wallet.privateKeyAccount(payment.sender).flatMap { sender =>
       createPayment(sender, new Account(payment.recipient), payment.amount, payment.fee)
     }
   }
 
-  def createPayment(sender: PrivateKey25519Holder, recipient: PublicKey25519Proposition, amount: Long, fee: Long): PaymentTransaction = {
+  def createPayment(sender: PrivateKey25519Holder, recipient: PublicKey25519Proposition, amount: Long, fee: Long): Try[LagonakiTransaction] = Try {
     val time = NTP.correctedTime()
-    val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time)
-    val payment = new PaymentTransaction(sender.publicCommitment, recipient, amount, fee, time, sig)
+    val nonce = blockStorage.state.closedBox(sender.publicCommitment.id).get.asInstanceOf[PublicKey25519NoncedBox].nonce
+    val payment = LagonakiTransaction(sender, recipient, nonce + 1, amount, fee, time)
     if (blockStorage.state.isValid(payment)) onNewOffchainTransaction(payment)
     payment
   }
@@ -139,9 +142,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     val timestamp = 0L
     val totalBalance = InitialBalance
 
+    val genesisSignature = Signature25519(Array.fill(64)(0: Byte))
     val txs = ipoMembers.map { addr =>
-      val recipient = new Account(addr)
-      GenesisTransaction(recipient, totalBalance / ipoMembers.length, timestamp)
+      val recipient = PublicKey25519Proposition(Sized.wrap(Random.randomBytes(32)))
+      LagonakiTransaction(LagonakiTransaction.GodAccount, recipient, 0, totalBalance / ipoMembers.length,
+        0, timestamp, genesisSignature)
     }
 
     TransactionsBlockField(txs)

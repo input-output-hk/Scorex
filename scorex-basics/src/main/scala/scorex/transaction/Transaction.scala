@@ -6,11 +6,18 @@ import scorex.serialization.{BytesSerializable, JsonSerializable}
 import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
 import scorex.transaction.state.MinimalState
 
+import scala.util.{Failure, Success, Try}
+
+
+case class StateChanges[P <: Proposition](toRemove: Set[Box[P]], toAppend: Set[Box[P]], minerReward: Long)
+
+
 /**
   * A transaction is an atomic state modifier
   */
 
 abstract class Transaction[P <: Proposition] extends BytesSerializable with JsonSerializable {
+
   def fee: Long
 
   val timestamp: Long
@@ -21,10 +28,25 @@ abstract class Transaction[P <: Proposition] extends BytesSerializable with Json
     */
   def json: JsObject
 
+  def validate(state: MinimalState[P]): Try[Unit]
+
+  def changes(state: MinimalState[P]): Try[StateChanges[P]]
+
+  //todo: move to some utils class
+  protected def toTry(b: Boolean, msg: String): Try[Unit] = b match {
+    case true => Success()
+    case false => Failure(new Exception(msg))
+  }
+
+  val messageToSign: Array[Byte]
+}
+
+abstract class BoxTransaction[P <: Proposition] extends Transaction[P] {
+
   val unlockers: Traversable[BoxUnlocker[P]]
   val newBoxes: Traversable[Box[P]]
 
-  lazy val messageToSign: Array[Byte] =
+  override lazy val messageToSign: Array[Byte] =
     newBoxes.map(_.bytes).reduce(_ ++ _) ++
       unlockers.map(_.closedBoxId).reduce(_ ++ _) ++
       Longs.toByteArray(timestamp) ++
@@ -43,28 +65,32 @@ abstract class Transaction[P <: Proposition] extends BytesSerializable with Json
     * @param state - state to check a transaction against
     * @return
     */
-  def isValid(state: MinimalState[P]): Boolean = {
-    val statelessValid = fee >= 0
+  override def validate(state: MinimalState[P]): Try[Unit] = {
+    lazy val statelessValid = toTry(fee >= 0, "Negative fee")
 
-    val statefulValid = {
-      val boxesSumOpt = unlockers.foldLeft[Option[Long]](Some(0L)) { case (partialRes, unlocker) =>
+    lazy val statefulValid = {
+      val boxesSumTry = unlockers.foldLeft[Try[Long]](Success(0L)) { case (partialRes, unlocker) =>
         partialRes.flatMap { partialSum =>
-          state.closedBox(unlocker.closedBoxId).flatMap { box =>
-            unlocker.boxKey.isValid(box.lock, messageToSign) match {
-              case true => Some(partialSum + box.value)
-              case false => None
-            }
+          state.closedBox(unlocker.closedBoxId) match {
+            case Some(box) =>
+              unlocker.boxKey.isValid(box.lock, messageToSign) match {
+                case true => Success(partialSum + box.value)
+                case false => Failure(new Exception(""))
+              }
+            case None => Failure(new Exception(""))
           }
         }
       }
 
-      boxesSumOpt match {
-        case Some(openSum) => newBoxes.map(_.value).sum == openSum - fee
-        case None => false
+      boxesSumTry flatMap { openSum =>
+        newBoxes.map(_.value).sum == openSum - fee match {
+          case true => Success()
+          case false => Failure(new Exception(""))
+        }
       }
     }
-    statefulValid && statelessValid && semanticValidity
+    statefulValid orElse statelessValid orElse semanticValidity
   }
 
-  def semanticValidity: Boolean
+  def semanticValidity: Try[Unit]
 }

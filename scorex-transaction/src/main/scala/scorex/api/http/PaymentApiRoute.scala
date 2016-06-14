@@ -7,8 +7,7 @@ import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import scorex.app.Application
-import scorex.transaction.LagonakiTransaction.ValidationResult
-import scorex.transaction.{LagonakiTransaction, SimpleTransactionModule}
+import scorex.transaction.SimpleTransactionModule
 import scorex.transaction.state.wallet.Payment
 
 import scala.util.Try

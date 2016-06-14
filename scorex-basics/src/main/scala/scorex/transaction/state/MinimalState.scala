@@ -14,7 +14,7 @@ trait MinimalState[P <: Proposition] {
 
   private[transaction] def processBlock(block: Block): Try[MinimalState[P]]
 
-  def isValid(tx: Transaction[P]): Boolean = tx.isValid(this)
+  def isValid(tx: Transaction[P]): Boolean = tx.validate(this).isSuccess
 
   def areValid(txs: Seq[Transaction[P]]): Boolean = txs.forall(isValid)
 
