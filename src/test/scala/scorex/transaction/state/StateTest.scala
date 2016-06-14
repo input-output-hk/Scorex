@@ -24,11 +24,11 @@ class StateTest extends PropSpec with PropertyChecks with GeneratorDrivenPropert
 object StateTestSpec extends Commands {
   val TestFolder = "target/test/"
   new File(TestFolder).mkdirs()
-  val accounts = (1 to 10) map (i => new PrivateKeyAccount(randomBytes()))
+  val accounts = (1 to 10) map (i => new PrivateKey25519Holder(randomBytes()))
   val accN = accounts.size
   val TotalBalance = 10000000
   val MaxTransactions = 100
-  val genesisTxs: Seq[GenesisTransaction] = accounts.map(a => GenesisTransaction(a, TotalBalance / accN, 0L))
+  val genesisTxs: Seq[LagonakiTransaction] = accounts.map(a => LagonakiTransaction(a, TotalBalance / accN, 0L))
 
   case class State(name: String, height: Int, included: Map[LagonakiTransaction, Int])
 

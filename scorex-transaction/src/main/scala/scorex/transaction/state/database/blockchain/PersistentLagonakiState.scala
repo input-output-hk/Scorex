@@ -9,8 +9,6 @@ import scorex.transaction._
 import scorex.transaction.state.LagonakiState
 import scorex.transaction.state.database.state._
 import scorex.utils.ScorexLogging
-
-import scala.annotation.tailrec
 import scala.collection.JavaConversions._
 import scala.util.Try
 
@@ -163,33 +161,6 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
     }
   }
 
-  override def included(proof: Array[Byte],
-                        heightOpt: Option[Int]): Option[Int] =
-    Option(includedTx.get(proof)).filter(_ < heightOpt.getOrElse(Int.MaxValue))
-
-  //return seq of valid transactions
-  @tailrec
-  override final def validate(trans: Seq[LagonakiTransaction], heightOpt: Option[Int] = None): Seq[LagonakiTransaction] = {
-    val height = heightOpt.getOrElse(stateHeight)
-    val txs = trans.filter(t => included(t).isEmpty && isValid(t, height))
-    val nb = calcNewBalances(txs, Map.empty)
-    val negativeBalances: Map[Account, (AccState, Reason)] = nb.filter(b => b._2._1.balance < 0)
-    val toRemove = negativeBalances flatMap { b =>
-      val accTransactions = trans.filter(_.isInstanceOf[PaymentTransaction]).map(_.asInstanceOf[PaymentTransaction])
-        .filter(_.paymentSender.address == b._1.address)
-      var sumBalance = b._2._1.balance
-      accTransactions.sortBy(-_.amount).takeWhile { t =>
-        val prevSum = sumBalance
-        sumBalance = sumBalance + t.amount + t.fee
-        prevSum < 0
-      }
-    }
-    val validTransactions = txs.filter(t => !toRemove.exists(tr => tr.signature sameElements t.proof.bytes))
-    if (validTransactions.size == txs.size) txs
-    else if (validTransactions.nonEmpty) validate(validTransactions, heightOpt)
-    else validTransactions
-  }
-
   //for debugging purposes only
   def toJson(heightOpt: Option[Int] = None): JsObject = {
     val ls = lastStates.keySet().map(add => add -> balance(add, heightOpt)).filter(b => b._2 != 0).toList.sortBy(_._1)
@@ -202,8 +173,5 @@ class PersistentLagonakiState(fileNameOpt: Option[String]) extends LagonakiState
   def hash: Int =
     (BigInt(FastCryptographicHash(toString.getBytes)) % Int.MaxValue).toInt
 
-  override def finalize(): Unit = {
-    db.close()
-    super.finalize()
-  }
+  def close(): Unit = db.close()
 }

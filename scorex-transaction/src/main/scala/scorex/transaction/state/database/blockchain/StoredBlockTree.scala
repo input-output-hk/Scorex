@@ -54,7 +54,7 @@ class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], Ma
 
     protected def getBestBlockId: BlockId
 
-    def changeBestChain(changes: Seq[(Block[TX], Direction)]): Try[Unit]
+    def changeBestChain(changes: Seq[(Block, Direction)]): Try[Unit]
 
     def lookForward(parentSignature: BlockId, howMany: Int): Seq[BlockId]
 
@@ -106,7 +106,7 @@ class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], Ma
       Try(Seq.empty)
     }.getOrElse(Seq.empty)
 
-    override def changeBestChain(changes: Seq[(Block[TX], Direction)]): Try[Unit] = Try {
+    override def changeBestChain(changes: Seq[(Block, Direction)]): Try[Unit] = Try {
       changes.map { c =>
         val parentId = c._1.parentId
         c._2 match {
@@ -126,7 +126,7 @@ class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], Ma
       *
       * @return true when best block added, false when block score is less then current score
       */
-    override def writeBlock(block: Block[TX]): Try[Boolean] = Try {
+    override def writeBlock(block: Block): Try[Boolean] = Try {
       if (exists(block)) log.warn(s"Trying to add block ${block.encodedId} that is already in tree "
         + s" at height ${readBlock(block).map(_._3)}")
       val parent = readBlock(block.parentId)
@@ -207,7 +207,7 @@ class StoredBlockTree[TM <: TransactionModule](dataFolderOpt: Option[String], Ma
     }
   }
 
-  def branchBlock(b1: Block[TX], b2: Block[TX], in: Int): Option[Block[TX]] = {
+  def branchBlock(b1: Block, b2: Block, in: Int): Option[Block] = {
     val b1LastBlocks = lastBlocks(b1, in)
     find(b2, in)(b => b1LastBlocks.exists(x => x.id sameElements b.id))
   }

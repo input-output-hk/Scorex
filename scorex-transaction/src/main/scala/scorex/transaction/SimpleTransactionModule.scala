@@ -160,6 +160,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
       case _ => ???
     }
   }
+
+  override def stop():Unit = {
+    super.stop()
+    blockStorage.state.close()
+  }
 }
 
 object SimpleTransactionModule {
