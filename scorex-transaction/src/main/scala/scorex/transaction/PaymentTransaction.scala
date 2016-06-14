@@ -31,7 +31,8 @@ class PaymentTransaction(val sender: PublicKeyAccount,
   override lazy val json: JsObject = jsonBase() ++ Json.obj(
     "sender" -> sender.address,
     "recipient" -> recipient.address,
-    "amount" -> amount
+    "amount" -> amount,
+    "attachment" -> Base58.encode(attachment)
   )
 
   override lazy val bytes: Array[Byte] = {

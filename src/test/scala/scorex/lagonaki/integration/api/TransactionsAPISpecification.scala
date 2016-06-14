@@ -56,6 +56,7 @@ class TransactionsAPISpecification extends FunSuite with Matchers with Transacti
     (tr \\ "signature").toList.size should be >= 0
     (tr \\ "sender").toList.size should be >= 0
     (tr \\ "recipient").toList.size should be >= 0
+    (tr \\ "attachment").toList.size should be >= 0
   }
 
 
