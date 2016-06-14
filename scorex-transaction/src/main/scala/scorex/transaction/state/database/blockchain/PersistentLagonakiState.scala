@@ -7,7 +7,6 @@ import scorex.consensus.ConsensusModule
 import scorex.crypto.hash.FastCryptographicHash
 import scorex.transaction._
 import scorex.transaction.state.LagonakiState
-import scorex.transaction.state.database.state._
 import scorex.utils.ScorexLogging
 import scala.collection.JavaConversions._
 import scala.util.Try

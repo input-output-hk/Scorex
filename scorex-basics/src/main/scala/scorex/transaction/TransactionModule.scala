@@ -35,7 +35,7 @@ trait TransactionModule {
   def packUnconfirmed(): TBD
 
   def clearFromUnconfirmed(data: TBD): Unit
-  def onNewOffchainTransaction(transaction: P): Unit
+  def onNewOffchainTransaction(transaction: TX): Unit
 
   def toSign(block: Block): Array[Byte]
 

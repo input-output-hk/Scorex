@@ -2,7 +2,8 @@ package scorex.transaction
 
 import com.google.common.primitives.Ints
 import scorex.app.Application
-import scorex.block.{Block, BlockField}
+import scorex.block.{Block, BlockField, BlockProcessingModule}
+import scorex.consensus.ConsensusModule
 import scorex.network.message.Message
 import scorex.network.{Broadcast, NetworkController, TransactionalMessagesRepo}
 import scorex.settings.Settings
@@ -16,7 +17,6 @@ import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
 import shapeless.Sized
-import shapeless.syntax.typeable._
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -27,7 +27,11 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   import SimpleTransactionModule._
 
-  val consensusModule = application.consensusModule
+  require(application.transactionModule.isInstanceOf[SimpleTransactionModule])
+  require(application.consensusModule.isInstanceOf[ConsensusModule[SimpleTransactionModule]])
+
+  override type TX = LagonakiTransaction
+  val consensusModule = application.consensusModule.asInstanceOf[ConsensusModule[SimpleTransactionModule]]
   val networkController = application.networkController
 
   val TransactionSizeLength = 4
@@ -53,43 +57,73 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   }
 
-  /**
-    * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
-    *
-    * @param bytes - serialized sequence of transaction
-    * @return
-    */
-  override def parseBytes(bytes: Array[Byte]): Try[TransactionsBlockField] = Try {
-    bytes.isEmpty match {
-      case true => TransactionsBlockField(Seq())
-      case false =>
-        val txData = bytes.tail
-        val txCount = bytes.head // so 255 txs max
-        formBlockData((1 to txCount).foldLeft((0: Int, Seq[LagonakiTransaction]())) { case ((pos, txs), _) =>
-          val transactionLengthBytes = txData.slice(pos, pos + TransactionSizeLength)
-          val transactionLength = Ints.fromByteArray(transactionLengthBytes)
-          val transactionBytes = txData.slice(pos + TransactionSizeLength, pos + TransactionSizeLength + transactionLength)
-          val transaction = LagonakiTransaction.parseBytes(transactionBytes).get
+  override type TBD = Seq[LagonakiTransaction]
+  override val builder: BlockProcessingModule[TBD] = new BlockProcessingModule[Seq[LagonakiTransaction]] {
+    /**
+      * In Lagonaki, transaction-related data is just sequence of transactions. No Merkle-tree root of txs / state etc
+      *
+      * @param bytes - serialized sequence of transaction
+      * @return
+      */
+    override def parseBytes(bytes: Array[Byte]): Try[TransactionsBlockField] = Try {
+      bytes.isEmpty match {
+        case true => TransactionsBlockField(Seq())
+        case false =>
+          val txData = bytes.tail
+          val txCount = bytes.head // so 255 txs max
+          formBlockData((1 to txCount).foldLeft((0: Int, Seq[LagonakiTransaction]())) { case ((pos, txs), _) =>
+            val transactionLengthBytes = txData.slice(pos, pos + TransactionSizeLength)
+            val transactionLength = Ints.fromByteArray(transactionLengthBytes)
+            val transactionBytes = txData.slice(pos + TransactionSizeLength, pos + TransactionSizeLength + transactionLength)
+            val transaction = LagonakiTransaction.parseBytes(transactionBytes).get
 
-          (pos + TransactionSizeLength + transactionLength, txs :+ transaction)
-        }._2)
+            (pos + TransactionSizeLength + transactionLength, txs :+ transaction)
+          }._2)
+      }
+    }
+
+    override def formBlockData(transactions: StoredInBlock): TransactionsBlockField = TransactionsBlockField(transactions)
+
+    override def genesisData: BlockField[StoredInBlock] = {
+      val ipoMembers = List(
+        //peer 1 accounts
+        "jACSbUoHi4eWgNu6vzAnEx583NwmUAVfS",
+        "aptcN9CfZouX7apreDB6WG2cJVbkos881",
+        "kVVAu6F21Ax2Ugddms4p5uXz4kdZfAp8g",
+        //peer 2 accounts
+        "mobNC7SHZRUXDi4GrZP9T2F4iLC1ZidmX",
+        "ffUTdmFDesA7NLqLaVfUNgQRD2Xn4tNBp",
+        "UR2WjoDCW32XAvYuPbyQW3guxMei5HKf1"
+      )
+
+      val timestamp = 0L
+      val totalBalance = InitialBalance
+
+      val genesisSignature = Signature25519(Array.fill(64)(0: Byte))
+      val txs = ipoMembers.map { addr =>
+        val recipient = PublicKey25519Proposition(Sized.wrap(Random.randomBytes(32)))
+        LagonakiTransaction(LagonakiTransaction.GodAccount, recipient, 0, totalBalance / ipoMembers.length,
+          0, timestamp, genesisSignature)
+      }
+
+      TransactionsBlockField(txs)
     }
   }
 
-  override def formBlockData(transactions: StoredInBlock): TransactionsBlockField = TransactionsBlockField(transactions)
 
   //TODO asInstanceOf
   override def transactions(block: Block): StoredInBlock =
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
-    blockStorage.state.validate(UnconfirmedTransactionsDatabaseImpl.all().sortBy(-_.fee).take(MaxTransactionsPerBlock))
+    blockStorage.state
+      .filterValid(UnconfirmedTransactionsDatabaseImpl.all().sortBy(-_.fee).take(MaxTransactionsPerBlock))
       .cast[StoredInBlock]
       .getOrElse(Seq())
 
   //todo: check: clear unconfirmed txs on receiving a block
   override def clearFromUnconfirmed(data: StoredInBlock): Unit = {
-    data.foreach(tx => UnconfirmedTransactionsDatabaseImpl.getBySignature(tx.signature) match {
+    data.foreach(tx => UnconfirmedTransactionsDatabaseImpl.getBySignature(tx.signature.signature) match {
       case Some(unconfirmedTx) => UnconfirmedTransactionsDatabaseImpl.remove(unconfirmedTx)
       case None =>
     })
@@ -100,7 +134,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     }
 
     val txs = UnconfirmedTransactionsDatabaseImpl.all()
-    txs.diff(blockStorage.state.validate(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
+    txs.diff(blockStorage.state.filterValid(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
   }
 
   override def onNewOffchainTransaction(transaction: LagonakiTransaction): Unit = transaction match {
@@ -127,41 +161,17 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     payment
   }
 
-  override def genesisData: BlockField[StoredInBlock] = {
-    val ipoMembers = List(
-      //peer 1 accounts
-      "jACSbUoHi4eWgNu6vzAnEx583NwmUAVfS",
-      "aptcN9CfZouX7apreDB6WG2cJVbkos881",
-      "kVVAu6F21Ax2Ugddms4p5uXz4kdZfAp8g",
-      //peer 2 accounts
-      "mobNC7SHZRUXDi4GrZP9T2F4iLC1ZidmX",
-      "ffUTdmFDesA7NLqLaVfUNgQRD2Xn4tNBp",
-      "UR2WjoDCW32XAvYuPbyQW3guxMei5HKf1"
-    )
-
-    val timestamp = 0L
-    val totalBalance = InitialBalance
-
-    val genesisSignature = Signature25519(Array.fill(64)(0: Byte))
-    val txs = ipoMembers.map { addr =>
-      val recipient = PublicKey25519Proposition(Sized.wrap(Random.randomBytes(32)))
-      LagonakiTransaction(LagonakiTransaction.GodAccount, recipient, 0, totalBalance / ipoMembers.length,
-        0, timestamp, genesisSignature)
-    }
-
-    TransactionsBlockField(txs)
-  }
 
   //todo: safe casting from shapeless?
   override def isValid(block: Block): Boolean = {
     block.transactions match {
       case transactions: Seq[LagonakiTransaction] =>
-        blockStorage.state.areValid(transactions, blockStorage.history.heightOf(block))
+        blockStorage.state.areValid(transactions)
       case _ => ???
     }
   }
 
-  override def stop():Unit = {
+  override def stop(): Unit = {
     super.stop()
     blockStorage.state.close()
   }
