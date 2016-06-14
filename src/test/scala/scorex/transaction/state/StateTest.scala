@@ -149,8 +149,9 @@ object StateTestSpec extends Commands {
 
   def createPayment(sender: PrivateKeyAccount, recipient: Account, amount: Long, fee: Long): PaymentTransaction = {
     val time = NTP.correctedTime()
-    val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time)
-    new PaymentTransaction(new PublicKeyAccount(sender.publicKey), recipient, amount, fee, time, sig)
+    val attachment: Array[Byte] = Array.empty
+    val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time, attachment)
+    new PaymentTransaction(new PublicKeyAccount(sender.publicKey), recipient, amount, fee, time, attachment, sig)
   }
 
 }

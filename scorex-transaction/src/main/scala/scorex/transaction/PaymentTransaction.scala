@@ -12,12 +12,13 @@ import scorex.transaction.LagonakiTransaction.TransactionType
 
 import scala.util.{Failure, Try}
 
-case class PaymentTransaction(sender: PublicKeyAccount,
-                              override val recipient: Account,
-                              override val amount: Long,
-                              override val fee: Long,
-                              override val timestamp: Long,
-                              override val signature: Array[Byte])
+class PaymentTransaction(val sender: PublicKeyAccount,
+                         override val recipient: Account,
+                         override val amount: Long,
+                         override val fee: Long,
+                         override val timestamp: Long,
+                         attachment: Array[Byte],
+                         override val signature: Array[Byte])
   extends LagonakiTransaction(TransactionType.PaymentTransaction, recipient, amount, fee, timestamp, signature) {
 
   import scorex.transaction.LagonakiTransaction._
@@ -42,11 +43,11 @@ case class PaymentTransaction(sender: PublicKeyAccount,
 
     Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
       Base58.decode(recipient.address).get, amountBytes,
-      feeBytes, signature)
+      feeBytes, signature, Ints.toByteArray(attachment.length), attachment)
   }
 
   override lazy val signatureValid: Boolean = {
-    val data = signatureData(sender, recipient, amount, fee, timestamp)
+    val data = signatureData(sender, recipient, amount, fee, timestamp, attachment)
     EllipticCurveImpl.verify(signature, data, sender.publicKey)
   }
 
@@ -86,9 +87,9 @@ object PaymentTransaction extends Deser[PaymentTransaction] {
   private val BaseLength = TimestampLength + SenderLength + RecipientLength + AmountLength + FeeLength + SignatureLength
 
   def apply(sender: PrivateKeyAccount, recipient: Account,
-            amount: Long, fee: Long, timestamp: Long): PaymentTransaction = {
-    val sig = generateSignature(sender, recipient, amount, fee, timestamp)
-    PaymentTransaction(sender, recipient, amount, fee, timestamp, sig)
+            amount: Long, fee: Long, timestamp: Long, attachment: Array[Byte]): PaymentTransaction = {
+    val sig = generateSignature(sender, recipient, amount, fee, timestamp, attachment)
+    new PaymentTransaction(sender, recipient, amount, fee, timestamp, attachment, sig)
   }
 
   def parseBytes(data: Array[Byte]): Try[PaymentTransaction] = {
@@ -132,23 +133,30 @@ object PaymentTransaction extends Deser[PaymentTransaction] {
 
     //READ SIGNATURE
     val signatureBytes = util.Arrays.copyOfRange(data, position, position + SignatureLength)
+    position += SignatureLength
 
-    PaymentTransaction(sender, recipient, amount, fee, timestamp, signatureBytes)
+    val attachmentLength = Try(Ints.fromByteArray(util.Arrays.copyOfRange(data, position, position + 4))).getOrElse(0)
+    val attachment: Array[Byte] = if (attachmentLength > 0) {
+      position += 4
+      util.Arrays.copyOfRange(data, position, position + attachmentLength)
+    } else Array.empty
+
+    new PaymentTransaction(sender, recipient, amount, fee, timestamp, attachment, signatureBytes)
   }
 
   def generateSignature(sender: PrivateKeyAccount, recipient: Account,
-                        amount: Long, fee: Long, timestamp: Long): Array[Byte] = {
-    EllipticCurveImpl.sign(sender, signatureData(sender, recipient, amount, fee, timestamp))
+                        amount: Long, fee: Long, timestamp: Long, attachment: Array[Byte]): Array[Byte] = {
+    EllipticCurveImpl.sign(sender, signatureData(sender, recipient, amount, fee, timestamp, attachment))
   }
 
   private def signatureData(sender: PublicKeyAccount, recipient: Account,
-                            amount: Long, fee: Long, timestamp: Long): Array[Byte] = {
+                            amount: Long, fee: Long, timestamp: Long, attachment: Array[Byte]): Array[Byte] = {
     val typeBytes = Ints.toByteArray(TransactionType.PaymentTransaction.id)
     val timestampBytes = Longs.toByteArray(timestamp)
     val amountBytes = Longs.toByteArray(amount)
     val feeBytes = Longs.toByteArray(fee)
 
     Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
-      Base58.decode(recipient.address).get, amountBytes, feeBytes)
+      Base58.decode(recipient.address).get, amountBytes, feeBytes, attachment)
   }
 }

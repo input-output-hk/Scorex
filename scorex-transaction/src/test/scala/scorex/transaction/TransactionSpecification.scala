@@ -14,13 +14,14 @@ with Matchers {
   property("transaction signature should be valid in a valid flow") {
     forAll { (senderSeed: Array[Byte],
               recipientSeed: Array[Byte],
+              attachment: Array[Byte],
               time: Long,
               amount: Long,
               fee: Long) =>
       val sender = new PrivateKeyAccount(senderSeed)
       val recipient = new PrivateKeyAccount(recipientSeed)
 
-      val tx = PaymentTransaction(sender, recipient, amount, fee, time)
+      val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
       tx.signatureValid should be(true)
     }
   }
@@ -28,18 +29,25 @@ with Matchers {
   property("wrong transaction signature should be invalid") {
     forAll { (senderSeed: Array[Byte],
               recipientSeed: Array[Byte],
+              attachment: Array[Byte],
               time: Long,
               amount: Long,
               fee: Long) =>
-      val sender = new PrivateKeyAccount(senderSeed)
-      val recipient = new PrivateKeyAccount(recipientSeed)
+      whenever(!(senderSeed sameElements recipientSeed)) {
+        val sender = new PrivateKeyAccount(senderSeed)
+        val recipient = new PrivateKeyAccount(recipientSeed)
 
-      val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time)
+        val sig = PaymentTransaction.generateSignature(sender, recipient, amount, fee, time, attachment)
 
-      PaymentTransaction(sender, recipient, amount, fee + 1, time, sig).signatureValid should be(false)
-      PaymentTransaction(sender, recipient, amount, fee, time + 1, sig).signatureValid should be(false)
-      PaymentTransaction(sender, recipient, amount + 1, fee, time + 1, sig).signatureValid should be(false)
-      PaymentTransaction(recipient, sender, amount + 1, fee, time + 1, sig).signatureValid should be(false)
+        new PaymentTransaction(sender, recipient, amount, fee, time, attachment, sig).signatureValid shouldBe true
+        new PaymentTransaction(sender, recipient, amount, fee, time, (0: Byte) +: attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(sender, recipient, amount + 1, fee, time, attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(sender, recipient, amount, fee + 1, time, attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(sender, recipient, amount, fee, time + 1, attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(sender, sender, amount, fee, time, attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(recipient, recipient, amount, fee, time, attachment, sig).signatureValid shouldBe false
+        new PaymentTransaction(recipient, sender, amount, fee, time, attachment, sig).signatureValid shouldBe false
+      }
     }
   }
 
@@ -47,13 +55,14 @@ with Matchers {
     forAll { (senderSeed: Array[Byte],
               recipientSeed: Array[Byte],
               time: Long,
+              attachment: Array[Byte],
               amount: Long,
               fee: Long) =>
 
       val sender = new PrivateKeyAccount(senderSeed)
       val recipient = new PrivateKeyAccount(recipientSeed)
 
-      val tx = PaymentTransaction(sender, recipient, amount, fee, time)
+      val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
 
       tx.timestamp shouldEqual time
       tx.amount shouldEqual amount
@@ -66,13 +75,14 @@ with Matchers {
   property("bytes()/parse() roundtrip should preserve a transaction") {
     forAll { (senderSeed: Array[Byte],
               recipientSeed: Array[Byte],
+              attachment: Array[Byte],
               time: Long,
               amount: Long,
               fee: Long) =>
 
       val sender = new PrivateKeyAccount(senderSeed)
       val recipient = new PrivateKeyAccount(recipientSeed)
-      val tx = PaymentTransaction(sender, recipient, amount, fee, time)
+      val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
       val txAfter = PaymentTransaction.parseBytes(tx.bytes).get
 
       txAfter.getClass.shouldBe(tx.getClass)
@@ -104,13 +114,14 @@ with Matchers {
     forAll {
       (senderSeed: Array[Byte],
        recipientSeed: Array[Byte],
+       attachment: Array[Byte],
        time: Long,
        amount: Long,
        fee: Long) =>
 
         val sender = new PrivateKeyAccount(senderSeed)
         val recipient = new PrivateKeyAccount(recipientSeed)
-        val tx = PaymentTransaction(sender, recipient, amount, fee, time)
+        val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
         val txAfter = LagonakiTransaction.parseBytes(tx.bytes).get
 
         txAfter.getClass.shouldBe(tx.getClass)

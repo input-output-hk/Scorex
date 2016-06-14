@@ -25,7 +25,7 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val gs = Array.fill(NxtLikeConsensusModule.GeneratorSignatureLength)(Random.nextInt(100).toByte)
 
     val sender = new PrivateKeyAccount(reference.dropRight(2))
-    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
+    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000, Array.empty)
 
     val tbd = Seq(tx)
     val cbd = new NxtLikeConsensusBlockData {
@@ -55,7 +55,7 @@ class BlockSpecification extends FunSuite with Matchers with TestingCommons {
     val gs = Array.fill(QoraLikeConsensusModule.GeneratorSignatureLength)(Random.nextInt(100).toByte)
 
     val sender = new PrivateKeyAccount(reference.dropRight(2))
-    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000)
+    val tx: Transaction = PaymentTransaction(sender, gen, 5, 1000, System.currentTimeMillis() - 5000, Array.empty)
 
     val tbd = Seq(tx)
     val cbd = new QoraLikeConsensusBlockData {
