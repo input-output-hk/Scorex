@@ -17,7 +17,7 @@ class PaymentTransaction(val sender: PublicKeyAccount,
                          override val amount: Long,
                          override val fee: Long,
                          override val timestamp: Long,
-                         attachment: Array[Byte],
+                         val attachment: Array[Byte],
                          override val signature: Array[Byte])
   extends LagonakiTransaction(TransactionType.PaymentTransaction, recipient, amount, fee, timestamp, signature) {
 
@@ -36,17 +36,21 @@ class PaymentTransaction(val sender: PublicKeyAccount,
   )
 
   override lazy val bytes: Array[Byte] = {
+    def packAttachment(): Array[Byte] = if (attachment.length == 0) {
+      Array.empty
+    } else {
+      val sliced = attachment.take(MaxAttachmentSize)
+      Bytes.concat(Ints.toByteArray(sliced.length), sliced)
+    }
     val typeBytes = Array(TypeId.toByte)
 
     val timestampBytes = Longs.toByteArray(timestamp)
     val amountBytes = Longs.toByteArray(amount)
     val feeBytes = Longs.toByteArray(fee)
 
-    val withoutAttachment = Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
+    Bytes.concat(typeBytes, timestampBytes, sender.publicKey,
       Base58.decode(recipient.address).get, amountBytes,
-      feeBytes, signature)
-    if(attachment.length > 0) Bytes.concat(withoutAttachment, Ints.toByteArray(attachment.length), attachment)
-    else withoutAttachment
+      feeBytes, signature, packAttachment())
   }
 
   override lazy val signatureValid: Boolean = {
@@ -84,6 +88,7 @@ object PaymentTransaction extends Deser[PaymentTransaction] {
 
   import scorex.transaction.LagonakiTransaction._
 
+  val MaxAttachmentSize = 4096
   private val SenderLength = 32
   private val FeeLength = 8
   private val SignatureLength = 64

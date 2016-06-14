@@ -4,12 +4,33 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.account.PrivateKeyAccount
 import scorex.crypto.encode.Base58
+import scorex.utils.randomBytes
 
+import scala.util.Random
 
 class TransactionSpecification extends PropSpec
 with PropertyChecks
 with GeneratorDrivenPropertyChecks
 with Matchers {
+
+
+  property("Slice transaction attachment") {
+    forAll { (senderSeed: Array[Byte],
+              recipientSeed: Array[Byte],
+              time: Long,
+              amount: Long,
+              attachmentRnd: Array[Byte],
+              fee: Long) =>
+      val attachment:Array[Byte] = attachmentRnd ++ Array.fill(PaymentTransaction.MaxAttachmentSize)(1: Byte)
+      val sender = new PrivateKeyAccount(senderSeed)
+      val recipient = new PrivateKeyAccount(recipientSeed)
+
+      val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
+      val txAfter = PaymentTransaction.parseBytes(tx.bytes).get
+      txAfter.attachment.length shouldBe PaymentTransaction.MaxAttachmentSize
+    }
+  }
+
 
   property("transaction signature should be valid in a valid flow") {
     forAll { (senderSeed: Array[Byte],
@@ -22,7 +43,7 @@ with Matchers {
       val recipient = new PrivateKeyAccount(recipientSeed)
 
       val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
-      tx.signatureValid should be(true)
+      tx.signatureValid shouldBe true
     }
   }
 
@@ -118,22 +139,25 @@ with Matchers {
        time: Long,
        amount: Long,
        fee: Long) =>
+        whenever(attachment.length <= PaymentTransaction.MaxAttachmentSize) {
 
-        val sender = new PrivateKeyAccount(senderSeed)
-        val recipient = new PrivateKeyAccount(recipientSeed)
-        val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
-        val txAfter = LagonakiTransaction.parseBytes(tx.bytes).get
+          val sender = new PrivateKeyAccount(senderSeed)
+          val recipient = new PrivateKeyAccount(recipientSeed)
+          val tx = PaymentTransaction(sender, recipient, amount, fee, time, attachment)
+          val txAfter = LagonakiTransaction.parseBytes(tx.bytes).get
 
-        txAfter.getClass.shouldBe(tx.getClass)
+          txAfter.getClass.shouldBe(tx.getClass)
 
-        tx.dataLength shouldEqual txAfter.dataLength
-        tx.signature shouldEqual txAfter.signature
-        tx.sender shouldEqual txAfter.asInstanceOf[PaymentTransaction].sender
-        tx.recipient shouldEqual txAfter.recipient
-        tx.timestamp shouldEqual txAfter.timestamp
-        tx.amount shouldEqual txAfter.amount
-        tx.fee shouldEqual txAfter.fee
-        txAfter.signatureValid shouldEqual true
+          tx.dataLength shouldEqual txAfter.dataLength
+          tx.signature shouldEqual txAfter.signature
+          tx.sender shouldEqual txAfter.asInstanceOf[PaymentTransaction].sender
+          tx.recipient shouldEqual txAfter.recipient
+          tx.timestamp shouldEqual txAfter.timestamp
+          tx.amount shouldEqual txAfter.amount
+          tx.fee shouldEqual txAfter.fee
+          tx.attachment shouldEqual txAfter.asInstanceOf[PaymentTransaction].attachment
+          txAfter.signatureValid shouldEqual true
+        }
     }
   }
 }
