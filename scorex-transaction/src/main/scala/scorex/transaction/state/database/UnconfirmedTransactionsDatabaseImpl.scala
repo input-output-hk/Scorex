@@ -15,10 +15,9 @@ object UnconfirmedTransactionsDatabaseImpl extends UnconfirmedTransactionsDataba
   val transactions = TrieMap[Long, LagonakiTransaction]()
 
   //using Long instead of Array[Byte] just for performance improvement
-  private def key(signature: Array[Byte]): Long =
-    Longs.fromByteArray(signature.take(8))
+  private def key(signature: Array[Byte]): Long = Longs.fromByteArray(signature.take(8))
 
-  private def key(tx: LagonakiTransaction): Long = key(tx.signature)
+  private def key(tx: LagonakiTransaction): Long = key(tx.signature.signature)
 
   override def putIfNew(tx: LagonakiTransaction): Boolean = if (transactions.size < SizeLimit) {
     transactions.putIfAbsent(key(tx), tx).isEmpty

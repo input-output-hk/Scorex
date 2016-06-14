@@ -12,13 +12,13 @@ import scala.util.Try
 trait MinimalState[P <: Proposition] {
   val version: Int
 
-  private[transaction] def processBlock(block: Block): Try[MinimalState[P]]
-
   def isValid(tx: Transaction[P]): Boolean = tx.validate(this).isSuccess
 
   def areValid(txs: Seq[Transaction[P]]): Boolean = txs.forall(isValid)
 
   def filterValid(txs: Seq[Transaction[P]]): Seq[Transaction[P]] = txs.filter(isValid)
+
+  private[transaction] def processBlock(block: Block): Try[MinimalState[P]]
 
   private[transaction] def rollbackTo(height: Int): Try[MinimalState[P]]
 
