@@ -21,7 +21,7 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
   extends ApiRoute with CommonApiFunctions {
 
   //todo: asInstanceOf, also ugly & dangerous casting
-  private val state: LagonakiState = application.blockStorage.state.asInstanceOf[LagonakiState]
+  private val state: LagonakiState = application.transactionModule.state.asInstanceOf[LagonakiState]
 
   override lazy val route =
     pathPrefix("transactions") {
