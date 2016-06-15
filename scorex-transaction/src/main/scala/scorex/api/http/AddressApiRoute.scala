@@ -13,6 +13,7 @@ import scorex.transaction.{TransactionModule, LagonakiTransaction}
 import scorex.transaction.box.{PublicKey25519Proposition, PublicKeyProposition}
 import scorex.transaction.state.{PrivateKey25519Holder, LagonakiState}
 import scorex.wallet.Wallet
+import shapeless.Sized
 
 import scala.util.{Failure, Success, Try}
 
@@ -180,7 +181,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
       getJsonRoute {
         //TODO CHECK IF WALLET EXISTS
         withPrivateKeyAccount(wallet, address) { account =>
-          wallet.exportAccountSeed(account.address) match {
+          wallet.seed(account.address) match {
             case None => WalletSeedExportFailed.json
             case Some(seed) => Json.obj("address" -> address, "seed" -> Base58.encode(seed))
           }
@@ -300,9 +301,8 @@ case class AddressApiRoute(override val application: Application)(implicit val c
                   case (_, Failure(_), _) => InvalidSignature.json
                   case (_, _, Failure(_)) => InvalidPublicKey.json
                   case (Success(msgBytes), Success(signatureBytes), Success(pubKeyBytes)) =>
-                    val account = new PublicKeyAccount(pubKeyBytes)
-                    val isValid = account.address == address &&
-                      EllipticCurveImpl.verify(signatureBytes, msgBytes, pubKeyBytes)
+                    val account = PublicKey25519Proposition(Sized.wrap(pubKeyBytes))
+                    val isValid = account.address == address && account.verify(msgBytes, Sized.wrap(signatureBytes))
                     Json.obj("valid" -> isValid)
                 }
               }

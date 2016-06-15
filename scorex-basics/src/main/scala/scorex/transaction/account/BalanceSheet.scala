@@ -3,12 +3,12 @@ package scorex.transaction.account
 import scorex.transaction.box.Proposition
 
 
-trait BalanceSheet {
+trait BalanceSheet[P <: Proposition] {
   val GenerationBalanceConfirmations = 50
 
-  def balance(id: Proposition, height: Option[Int] = None): Long
+  def balance(id: P, height: Option[Int] = None): Long
 
-  def balanceWithConfirmations(id: Proposition, confirmations: Int): Long
+  def balanceWithConfirmations(id: P, confirmations: Int): Long
 
-  def generationBalance(id: Proposition): Long = balanceWithConfirmations(id, GenerationBalanceConfirmations)
+  def generationBalance(id: P): Long = balanceWithConfirmations(id, GenerationBalanceConfirmations)
 }

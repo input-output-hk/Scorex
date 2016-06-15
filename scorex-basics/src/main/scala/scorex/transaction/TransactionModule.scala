@@ -5,15 +5,18 @@ import scorex.settings.Settings
 import scorex.transaction.account.{AccountTransactionsHistory, BalanceSheet}
 import scorex.transaction.box.{AddressableProposition, Proposition}
 import scorex.transaction.proof.Proof
-import scorex.transaction.state.{SecretHolderGenerator, SecretHolder, MinimalState}
+import scorex.transaction.state.{MinimalState, SecretHolder, SecretHolderGenerator}
+import scorex.utils.ScorexLogging
 import scorex.wallet.Wallet
 
 //todo: add pool
-trait TransactionModule {
+trait TransactionModule extends ScorexLogging {
   type TBD
   val builder: BlockProcessingModule[TBD]
 
   type P <: Proposition
+  type AP <: AddressableProposition
+
   type TX <: Transaction[P]
   type PR <: Proof[P]
   type SH <: SecretHolder[_ <: P with AddressableProposition, PR]
@@ -26,8 +29,6 @@ trait TransactionModule {
   private val walletFileOpt = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
   val wallet = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed, generator)
 
-  val blockStorage: BlockStorage[P]
-
   def isValid(block: Block): Boolean
 
   def transactions(block: Block): Seq[TX]
@@ -35,21 +36,24 @@ trait TransactionModule {
   def packUnconfirmed(): TBD
 
   def clearFromUnconfirmed(data: TBD): Unit
+
   def onNewOffchainTransaction(transaction: TX): Unit
 
   def toSign(block: Block): Array[Byte]
 
-  lazy val balancesSupport: Boolean = blockStorage.state match {
-    case _: MinimalState[_] with BalanceSheet => true
+  def state: MinimalState[P]
+
+  lazy val balancesSupport: Boolean = state match {
+    case _: MinimalState[_] with BalanceSheet[_] => true
     case _ => false
   }
 
-  lazy val accountWatchingSupport: Boolean = blockStorage.state match {
+  lazy val accountWatchingSupport: Boolean = state match {
     case _: MinimalState[_] with AccountTransactionsHistory[_] => true
     case _ => false
   }
 
-  def stop() = {
+  def stop(): Unit = {
     wallet.close()
   }
 }

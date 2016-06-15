@@ -7,7 +7,8 @@ import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
 import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
-import scorex.transaction.{Transaction, BlockChain}
+import scorex.consensus.BlockChain
+import scorex.transaction.Transaction
 
 
 @Path("/blocks")

@@ -4,11 +4,11 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util
 import com.google.common.primitives.{Bytes, Ints}
 import scorex.block.Block
-import scorex.consensus.ConsensusModule
+import scorex.consensus.{History, ConsensusModule}
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
 import scorex.transaction.proof.Signature25519
-import scorex.transaction.{TransactionModule, History}
+import scorex.transaction.TransactionModule
 import scala.util.Try
 
 

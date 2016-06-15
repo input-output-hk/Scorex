@@ -1,9 +1,9 @@
-package scorex.transaction
+package scorex.consensus
 
 import scorex.block.Block
 import scorex.block.Block.BlockId
 import scorex.crypto.encode.Base58
-import scorex.transaction.box.Proposition
+import scorex.transaction.box.{Proposition, AddressableProposition}
 
 import scala.util.Try
 
@@ -21,8 +21,6 @@ import scala.util.Try
 
 trait History {
 
-  import scorex.transaction.History.BlockchainScore
-
   /**
     * Height of the a chain, or a longest chain in the explicit block-tree
     */
@@ -32,7 +30,7 @@ trait History {
     * Quality score of a best chain, e.g. cumulative difficulty in case of Bitcoin / Nxt
     * @return
     */
-  def score(): BlockchainScore
+  def score(): History.BlockchainScore
 
   /**
     * Is there's no history, even genesis block
@@ -63,7 +61,7 @@ trait History {
     * @param block - block to append
     * @return Blocks to process in state
     */
-  private[transaction] def appendBlock(block: Block): Try[Seq[Block]]
+  private[consensus] def appendBlock(block: Block): Try[Seq[Block]]
 
   def parent(block: Block, back: Int = 1): Option[Block]
 

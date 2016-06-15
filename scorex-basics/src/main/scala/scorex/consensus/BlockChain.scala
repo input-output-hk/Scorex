@@ -1,7 +1,8 @@
-package scorex.transaction
+package scorex.consensus
 
 import scorex.block.Block
 import scorex.block.Block.BlockId
+import scorex.transaction.box.Proposition
 import scorex.utils.ScorexLogging
 
 trait BlockChain extends History with ScorexLogging {
@@ -15,7 +16,7 @@ trait BlockChain extends History with ScorexLogging {
     heightOf(block.parentId).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
   }
 
-  private[transaction] def discardBlock(): BlockChain
+  private[consensus] def discardBlock(): BlockChain
 
   override def lastBlocks(howMany: Int): Seq[Block] =
     (Math.max(1, height() - howMany + 1) to height()).flatMap(blockAt).reverse

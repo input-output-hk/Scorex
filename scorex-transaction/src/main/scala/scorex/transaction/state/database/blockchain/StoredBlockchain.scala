@@ -3,10 +3,10 @@ package scorex.transaction.state.database.blockchain
 import org.h2.mvstore.{MVMap, MVStore}
 import scorex.block.Block
 import scorex.block.Block.BlockId
-import scorex.consensus.ConsensusModule
-import scorex.transaction.History.BlockchainScore
+import scorex.consensus.{BlockChain, History, ConsensusModule}
+import History.BlockchainScore
 import scorex.transaction.box.Proposition
-import scorex.transaction.{BlockChain, TransactionModule}
+import scorex.transaction.TransactionModule
 import scorex.utils.ScorexLogging
 
 import scala.collection.JavaConversions._

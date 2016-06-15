@@ -12,15 +12,16 @@ import scorex.transaction.box.PublicKey25519Proposition
 import scorex.transaction.proof.Signature25519
 import scorex.transaction.state.PrivateKey25519Holder
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.{PersistentLagonakiState, StoredBlockchain}
+import scorex.transaction.state.database.blockchain.PersistentLagonakiState
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
 import shapeless.Sized
-import shapeless.syntax.typeable._
-
-import scala.concurrent.duration._
 import scala.util.Try
+
+import shapeless.syntax.typeable._
+import scala.concurrent.duration._
+
 
 
 class SimpleTransactionModule(implicit val settings: TransactionSettings with Settings, application: Application)
@@ -32,6 +33,8 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
   require(application.consensusModule.isInstanceOf[ConsensusModule[SimpleTransactionModule]])
 
   override type TX = LagonakiTransaction
+  override type SH = PrivateKey25519Holder
+
   val consensusModule = application.consensusModule.asInstanceOf[ConsensusModule[SimpleTransactionModule]]
   val networkController = application.networkController
 
@@ -40,21 +43,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   private val instance = this
 
-  override val blockStorage = new BlockStorage[LagonakiTransaction] {
-
-    override val MaxRollback: Int = settings.MaxRollback
-
-    override val history: History = settings.history match {
-      case s: String if s.equalsIgnoreCase("blockchain") =>
-        new StoredBlockchain[SimpleTransactionModule](settings.dataDirOpt)(consensusModule, instance)
-      case s =>
-        log.error(s"Unknown history storage: $s. Use StoredBlockchain...")
-        new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
-    }
-
-    override val state = new PersistentLagonakiState(settings.dataDirOpt.map(_ + "/state.dat"))
-
-  }
+  override val state = new PersistentLagonakiState(settings.dataDirOpt.map(_ + "/state.dat"))
 
   override type TBD = Seq[LagonakiTransaction]
   override val builder: BlockProcessingModule[TBD] = new BlockProcessingModule[Seq[LagonakiTransaction]] {
@@ -115,7 +104,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     block.transactionDataField.asInstanceOf[TransactionsBlockField].value
 
   override def packUnconfirmed(): StoredInBlock =
-    blockStorage.state
+    state
       .filterValid(UnconfirmedTransactionsDatabaseImpl.all().sortBy(-_.fee).take(MaxTransactionsPerBlock))
       .cast[StoredInBlock]
       .getOrElse(Seq())
@@ -127,13 +116,13 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
       case None =>
     })
 
-    val lastBlockTs = blockStorage.history.lastBlock.timestampField.value
+    val lastBlockTs = consensusModule.history.lastBlock.timestampField.value
     UnconfirmedTransactionsDatabaseImpl.all().foreach { tx =>
       if ((lastBlockTs - tx.timestamp).seconds > MaxTimeForUnconfirmed) UnconfirmedTransactionsDatabaseImpl.remove(tx)
     }
 
     val txs = UnconfirmedTransactionsDatabaseImpl.all()
-    txs.diff(blockStorage.state.filterValid(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
+    txs.diff(state.filterValid(txs)).foreach(tx => UnconfirmedTransactionsDatabaseImpl.remove(tx))
   }
 
   override def onNewOffchainTransaction(transaction: LagonakiTransaction): Unit = transaction match {
@@ -146,7 +135,7 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     case _ => throw new Error("Wrong kind of transaction!")
   }
 
-  def createPayment(payment: Payment, wallet: Wallet[_, _]): Option[LagonakiTransaction] = {
+  def createPayment(payment: Payment, wallet: Wallet[SimpleTransactionModule, PublicKey25519Proposition]): Option[LagonakiTransaction] = {
     wallet.privateKeyAccount(payment.sender).flatMap { sender =>
       createPayment(sender, new Account(payment.recipient), payment.amount, payment.fee)
     }
@@ -154,26 +143,20 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
 
   def createPayment(sender: PrivateKey25519Holder, recipient: PublicKey25519Proposition, amount: Long, fee: Long): Try[LagonakiTransaction] = Try {
     val time = NTP.correctedTime()
-    val nonce = blockStorage.state.closedBox(sender.publicCommitment.id).get.asInstanceOf[PublicKey25519NoncedBox].nonce
+    val nonce = state.closedBox(sender.publicCommitment.id).get.asInstanceOf[PublicKey25519NoncedBox].nonce
     val payment = LagonakiTransaction(sender, recipient, nonce + 1, amount, fee, time)
-    if (blockStorage.state.isValid(payment)) onNewOffchainTransaction(payment)
+    if (state.isValid(payment)) onNewOffchainTransaction(payment)
     payment
   }
 
 
   //todo: safe casting from shapeless?
-  override def isValid(block: Block): Boolean = {
+  override def isValid(block: Block): Boolean =
     block.transactions match {
       case transactions: Seq[LagonakiTransaction] =>
-        blockStorage.state.areValid(transactions)
+        state.areValid(transactions)
       case _ => ???
     }
-  }
-
-  override def stop(): Unit = {
-    super.stop()
-    blockStorage.state.close()
-  }
 }
 
 object SimpleTransactionModule {

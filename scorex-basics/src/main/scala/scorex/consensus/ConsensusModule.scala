@@ -2,10 +2,13 @@ package scorex.consensus
 
 import play.api.libs.json.Json
 import scorex.block.{BlockProcessingModule, BlockIdField, Block}
+import scorex.crypto.encode.Base58
 import scorex.transaction.box.Proposition
 import scorex.transaction.TransactionModule
+import scorex.utils.ScorexLogging
 import shapeless.{Nat, Sized}
 import scala.concurrent.Future
+import scala.util.{Success, Failure, Try}
 
 
 trait BasicConsensusBlockData {
@@ -33,7 +36,9 @@ trait SingleProducerConsensusBlockData extends BasicConsensusBlockData {
 }
 
 
-trait ConsensusModule[TM <: TransactionModule] {
+trait ConsensusModule[TM <: TransactionModule] extends ScorexLogging {
+
+  val transactionModule: TM
 
   type ConsensusBlockData <: BasicConsensusBlockData
   val builder: BlockProcessingModule[ConsensusBlockData]
@@ -43,7 +48,7 @@ trait ConsensusModule[TM <: TransactionModule] {
 
   val BlockIdLength: Int
 
-  def isValid[TransactionalBlockData](block: Block)(implicit transactionModule: TransactionModule): Boolean
+  def isValid[TransactionalBlockData](block: Block): Boolean
 
   /**
     * Fees could go to a single miner(forger) usually, but can go to many parties, e.g. see
@@ -71,4 +76,40 @@ trait ConsensusModule[TM <: TransactionModule] {
   def id(block: Block): BlockId
 
   def parentId(block: Block): BlockId
+
+
+  val MaxRollback: Int
+
+  val history: History
+
+  //Append block to current state
+  def appendBlock(block: Block): Try[Unit] = synchronized {
+    history.appendBlock(block).map { blocks =>
+      blocks foreach { b =>
+        transactionModule.state.processBlock(b) match {
+          case Failure(e) =>
+            log.error("Failed to apply block to state", e)
+            removeAfter(block.parentId)
+            //TODO ???
+            System.exit(1)
+          case Success(m) =>
+        }
+      }
+    }
+  }
+
+  //Should be used for linear blockchain only
+  def removeAfter(id: BlockId): Unit = synchronized {
+    history match {
+      case h: BlockChain => h.heightOf(id) match {
+        case Some(height) =>
+          while (!h.lastBlock.id.sameElements(id)) h.discardBlock()
+          transactionModule.state.rollbackTo(height)
+        case None =>
+          log.warn(s"RemoveAfter non-existing block ${Base58.encode(id)}")
+      }
+      case _ =>
+        throw new RuntimeException("Not available for other option than linear blockchain")
+    }
+  }
 }

@@ -61,7 +61,8 @@ class Wallet[TM <: TransactionModule, P <: TM#P with AddressableProposition](wal
     }
     seedPersistence.put("seed", seed)
   }
-  val seed: Array[Byte] = seedPersistence.get("seed")
+
+  lazy val seed: Array[Byte] = seedPersistence.get("seed")
 
   private val accountsCache: TrieMap[String, SH] = {
     val shs = accountsPersistence

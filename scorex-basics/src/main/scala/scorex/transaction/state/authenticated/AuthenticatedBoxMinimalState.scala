@@ -21,5 +21,5 @@ trait AuthenticatedBoxMinimalState[L <: Proposition, HashFunction <: Cryptograph
 
   val hashFunction: HashFunction
 
-  override private[transaction] def rollbackTo(height: Int): Try[AuthenticatedBoxMinimalState[L, HashFunction]]
+  override def rollbackTo(height: Int): Try[AuthenticatedBoxMinimalState[L, HashFunction]]
 }

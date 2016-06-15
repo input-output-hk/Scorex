@@ -1,7 +1,8 @@
 package scorex.network
 
 import akka.actor.{Actor, ActorRef}
-import scorex.transaction.History._
+import scorex.consensus.History
+import History._
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global

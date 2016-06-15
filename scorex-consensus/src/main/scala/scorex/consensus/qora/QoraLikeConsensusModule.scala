@@ -3,7 +3,7 @@ package scorex.consensus.qora
 import com.google.common.primitives.{Bytes, Longs}
 import scorex.transaction.account.{BalanceSheet, Account, PrivateKeyAccount}
 import scorex.block.{Block, BlockField}
-import scorex.consensus.{ConsensusModule, LagonakiConsensusModule}
+import scorex.consensus.{BlockChain, History, ConsensusModule, LagonakiConsensusModule}
 import scorex.crypto.EllipticCurveImpl
 import scorex.crypto.hash.FastCryptographicHash._
 import scorex.transaction._

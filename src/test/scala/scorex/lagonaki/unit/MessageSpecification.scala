@@ -4,11 +4,12 @@ import java.nio.ByteBuffer
 
 import org.scalatest.FunSuite
 import scorex.block.Block
+import scorex.consensus.History
 import scorex.consensus.nxt.NxtLikeConsensusModule
 import scorex.crypto.EllipticCurveImpl.SignatureLength
 import scorex.lagonaki.TestingCommons
 import scorex.network.message.{BasicMessagesRepo, Message, MessageHandler}
-import scorex.transaction.{History, SimpleTransactionModule}
+import scorex.transaction.SimpleTransactionModule
 import shapeless.syntax.typeable._
 
 class MessageSpecification extends FunSuite with TestingCommons {

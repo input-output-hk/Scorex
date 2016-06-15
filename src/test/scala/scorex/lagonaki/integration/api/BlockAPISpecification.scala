@@ -2,9 +2,10 @@ package scorex.lagonaki.integration.api
 
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.JsValue
+import scorex.consensus.BlockChain
 import scorex.crypto.encode.Base58
 import scorex.lagonaki.{TestingCommons, TransactionTestingCommons}
-import scorex.transaction.{AccountTransaction, BlockChain}
+import scorex.transaction.AccountTransaction
 
 
 class BlockAPISpecification extends FunSuite with Matchers with TransactionTestingCommons {

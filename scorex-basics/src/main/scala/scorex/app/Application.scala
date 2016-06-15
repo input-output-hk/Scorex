@@ -12,9 +12,8 @@ import scorex.network.message.{BasicMessagesRepo, MessageHandler, MessageSpec}
 import scorex.network.peer.PeerManager
 import scorex.settings.Settings
 import scorex.transaction.state.SecretHolderGenerator
-import scorex.transaction.{History, TransactionModule}
+import scorex.transaction.TransactionModule
 import scorex.utils.ScorexLogging
-import scorex.wallet.Wallet
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.runtime.universe.Type
@@ -65,9 +64,7 @@ trait Application extends ScorexLogging {
   lazy val blockGenerator = actorSystem.actorOf(Props(classOf[BlockGeneratorController], this), "blockGenerator")
 
   //interface to append log and state
-  lazy val blockStorage = transactionModule.blockStorage
-
-  lazy val history: History = blockStorage.history
+  lazy val history = consensusModule.history
 
   lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer[TX]], this), "HistorySynchronizer")
   lazy val historyReplier = actorSystem.actorOf(Props(classOf[HistoryReplier], this), "HistoryReplier")
@@ -114,10 +111,10 @@ trait Application extends ScorexLogging {
   }
 
   def checkGenesis(): Unit = {
-    if (transactionModule.blockStorage.history.isEmpty) {
+    if (consensusModule.history.isEmpty) {
       val genesisBlock = Block.genesis(settings.genesisTimestamp)
-      transactionModule.blockStorage.appendBlock(genesisBlock)
+      consensusModule.appendBlock(genesisBlock)
       log.info("Genesis block has been added to the state")
     }
-  }.ensuring(transactionModule.blockStorage.history.height() >= 1)
+  }.ensuring(consensusModule.history.height() >= 1)
 }

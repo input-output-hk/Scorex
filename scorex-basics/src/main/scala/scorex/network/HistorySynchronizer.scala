@@ -4,12 +4,13 @@ import akka.actor.Props
 import scorex.app.Application
 import scorex.block.Block
 import scorex.block.Block.BlockId
+import scorex.consensus.History
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.crypto.encode.Base58
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.ScoreObserver.{ConsideredValue, GetScore, UpdateScore}
 import scorex.network.message.Message
-import scorex.transaction.{Transaction, History}
+import scorex.transaction.Transaction
 import scorex.utils.ScorexLogging
 import shapeless.syntax.typeable._
 
@@ -107,7 +108,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
 
       val toDownload = blockIds.tail.filter(b => !application.history.contains(b))
       if (application.history.contains(common) && toDownload.nonEmpty) {
-        Try(application.blockStorage.removeAfter(common)) //todo we don't need this call for blockTree
+        Try(application.consensusModule.removeAfter(common)) //todo we don't need this call for blockTree
         gotoGettingBlocks(witnesses, toDownload.map(_ -> None))
         blockIds.tail.foreach { blockId =>
           val msg = Message(GetBlockSpec, Right(blockId), None)
@@ -198,7 +199,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
 
       val oldHeight = history.height()
       val oldScore = history.score()
-      transactionalModule.blockStorage.appendBlock(block) match {
+      consensusModule.appendBlock(block) match {
         case Success(_) =>
           block.transactionModule.clearFromUnconfirmed(block.transactionDataField.value)
           log.info(

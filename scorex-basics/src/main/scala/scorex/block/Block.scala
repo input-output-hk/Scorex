@@ -79,7 +79,7 @@ trait Block extends BytesSerializable with ScorexLogging {
   lazy val producers = consensusModule.producers(this)
 
   def isValid: Boolean = {
-    if (transactionModule.blockStorage.history.contains(this)) true //applied blocks are valid
+    if (consensusModule.history.contains(this)) true //applied blocks are valid
     else {
       lazy val consensus = consensusModule.isValid(this)
       lazy val transaction = transactionModule.isValid(this)

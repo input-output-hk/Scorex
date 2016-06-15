@@ -18,9 +18,9 @@ trait MinimalState[P <: Proposition] {
 
   def filterValid(txs: Seq[Transaction[P]]): Seq[Transaction[P]] = txs.filter(isValid)
 
-  private[transaction] def processBlock(block: Block): Try[MinimalState[P]]
+  def processBlock(block: Block): Try[MinimalState[P]]
 
-  private[transaction] def rollbackTo(height: Int): Try[MinimalState[P]]
+  def rollbackTo(height: Int): Try[MinimalState[P]]
 
   def closedBox(boxId: Array[Byte]): Option[Box[P]]
 }
