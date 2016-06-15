@@ -17,6 +17,7 @@ import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
 import shapeless.Sized
+import shapeless.syntax.typeable._
 
 import scala.concurrent.duration._
 import scala.util.Try

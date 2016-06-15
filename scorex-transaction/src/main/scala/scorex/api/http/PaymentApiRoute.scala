@@ -10,7 +10,7 @@ import scorex.app.Application
 import scorex.transaction.SimpleTransactionModule
 import scorex.transaction.state.wallet.Payment
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 @Path("/payment")
 @Api(value = "/payment", description = "Payment operations.", position = 1)
@@ -54,21 +54,12 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
                   val txOpt = transactionModule.createPayment(payment, wallet)
                   txOpt match {
                     case Some(tx) =>
-                      tx.validate match {
-                        case ValidationResult.ValidateOke =>
+                      tx.validate(transactionModule.blockStorage.state) match {
+                        case Success(_) =>
                           tx.json
 
-                        case ValidationResult.InvalidAddress =>
-                          InvalidAddress.json
-
-                        case ValidationResult.NegativeAmount =>
-                          NegativeAmount.json
-
-                        case ValidationResult.NegativeFee =>
-                          NegativeFee.json
-
-                        case ValidationResult.NoBalance =>
-                          NoBalance.json
+                        case Failure(e) =>
+                          Json.obj("error" -> 0, "message" -> e.getMessage)
                       }
                     case None =>
                       InvalidSender.json

@@ -18,7 +18,7 @@ import scala.util.Try
 class PersistentLagonakiState(dirNameOpt: Option[String]) extends LagonakiState with ScorexLogging {
   override def accountTransactions(id: PublicKey25519Proposition): Array[Transaction[PublicKey25519Proposition]] = ???
 
-  override val version: Int = _
+  override val version: Int = ???
 
   override def closedBox(boxId: Array[Byte]): Option[Box[PublicKey25519Proposition]] = ???
 
