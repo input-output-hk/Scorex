@@ -12,7 +12,7 @@ import scorex.transaction.box.PublicKey25519Proposition
 import scorex.transaction.proof.Signature25519
 import scorex.transaction.state.PrivateKey25519Holder
 import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.{PersistentLagonakiState, StoredBlockTree, StoredBlockchain}
+import scorex.transaction.state.database.blockchain.{PersistentLagonakiState, StoredBlockchain}
 import scorex.transaction.state.wallet.Payment
 import scorex.utils._
 import scorex.wallet.Wallet
@@ -46,8 +46,6 @@ class SimpleTransactionModule(implicit val settings: TransactionSettings with Se
     override val history: History = settings.history match {
       case s: String if s.equalsIgnoreCase("blockchain") =>
         new StoredBlockchain[SimpleTransactionModule](settings.dataDirOpt)(consensusModule, instance)
-      case s: String if s.equalsIgnoreCase("blocktree") =>
-        new StoredBlockTree(settings.dataDirOpt, MaxRollback)(consensusModule, instance)
       case s =>
         log.error(s"Unknown history storage: $s. Use StoredBlockchain...")
         new StoredBlockchain(settings.dataDirOpt)(consensusModule, instance)
