@@ -9,9 +9,14 @@ import shapeless.{Nat, Sized, Succ}
 
 sealed trait Proposition extends BytesSerializable
 
+sealed trait AddressableProposition extends Proposition {
+  val id: Array[Byte]
+  val address: String
+}
+
 trait EmptyProposition extends Proposition
 
-trait PublicKeyProposition extends Proposition {
+trait PublicKeyProposition extends AddressableProposition {
 
   import PublicKeyProposition._
 
@@ -20,11 +25,11 @@ trait PublicKeyProposition extends Proposition {
 
   override val bytes = publicKey.unsized
 
-  lazy val address: String = Base58.encode(id ++ calcCheckSum(id))
+  override lazy val address: String = Base58.encode(id ++ calcCheckSum(id))
 
   override def toString: String = address
 
-  lazy val id = {
+  override lazy val id = {
     val publicKeyHash = hash(publicKey).unsized.take(IdLength)
     AddressVersion +: publicKeyHash
   }
@@ -90,7 +95,7 @@ object SizedConstants {
 
 //todo: a_reserve
 //todo: sigma protocol id
-sealed trait SigmaProposition extends Proposition {
+sealed trait SigmaProposition extends AddressableProposition {
   val a: Array[Byte]
   val bytes = a
 }

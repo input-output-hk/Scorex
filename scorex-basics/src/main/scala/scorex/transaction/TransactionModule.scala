@@ -3,7 +3,7 @@ package scorex.transaction
 import scorex.block.{Block, BlockProcessingModule}
 import scorex.settings.Settings
 import scorex.transaction.account.{AccountTransactionsHistory, BalanceSheet}
-import scorex.transaction.box.Proposition
+import scorex.transaction.box.{AddressableProposition, Proposition}
 import scorex.transaction.proof.Proof
 import scorex.transaction.state.{SecretHolderGenerator, SecretHolder, MinimalState}
 import scorex.wallet.Wallet
@@ -16,7 +16,7 @@ trait TransactionModule {
   type P <: Proposition
   type TX <: Transaction[P]
   type PR <: Proof[P]
-  type SH <: SecretHolder[P, PR]
+  type SH <: SecretHolder[_ <: P with AddressableProposition, PR]
 
   val settings: Settings
 
@@ -24,7 +24,7 @@ trait TransactionModule {
 
   //wallet
   private val walletFileOpt = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
-  val wallet: Wallet[P, SH] = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed, generator)
+  val wallet = new Wallet(walletFileOpt, settings.walletPassword, settings.walletSeed, generator)
 
   val blockStorage: BlockStorage[P]
 

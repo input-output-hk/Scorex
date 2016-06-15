@@ -2,17 +2,19 @@ package scorex.transaction.state
 
 import scorex.crypto.signatures.Curve25519
 import scorex.serialization.BytesSerializable
-import scorex.transaction.box.{Box, Proposition, PublicKey25519Proposition, SizedConstants}
+import scorex.transaction.box._
 import scorex.transaction.proof.{Proof, Signature25519}
 import scorex.transaction.state.PrivateKey25519Holder.PrivateKey25519
 import shapeless.Sized
 
 import scala.util.Try
 
-trait SecretHolder[P <: Proposition, PR <: Proof[P]] extends BytesSerializable {
+trait SecretHolder[P <: AddressableProposition, PR <: Proof[P]] extends BytesSerializable {
   type Secret
 
   val publicCommitment: P
+
+  lazy val publicAddress = publicCommitment.address
 
   val secret: Secret
 

@@ -1,14 +1,11 @@
 package scorex.transaction.account
 
 import com.google.common.primitives.Ints
-import scorex.transaction.box.{Box, Proposition, PublicKeyProposition}
+import scorex.transaction.box.{Box, PublicKeyProposition}
 
-trait NoncedBox[P <: Proposition] extends Box[P] {
+trait PublicKeyNoncedBox[PKP <: PublicKeyProposition] extends Box[PKP] {
   val nonce: Int
-}
 
-
-trait PublicKeyNoncedBox[PKP <: PublicKeyProposition] extends NoncedBox[PKP] {
   lazy val id = lock.id ++ Ints.toByteArray(nonce)
 
   lazy val publicKey = lock.publicKey

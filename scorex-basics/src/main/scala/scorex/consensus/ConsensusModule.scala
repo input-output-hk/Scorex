@@ -24,6 +24,7 @@ trait BasicConsensusBlockData {
   lazy val bytes = fields.view.map(_.value).reduce(_ ++ _)
 }
 
+//todo: finish
 trait SingleProducerConsensusBlockData extends BasicConsensusBlockData {
   //val producerField: ProducerBlockField
   //val signatureField: SignatureBlockField

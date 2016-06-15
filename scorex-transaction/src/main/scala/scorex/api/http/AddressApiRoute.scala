@@ -10,8 +10,9 @@ import play.api.libs.json._
 import scorex.app.Application
 import scorex.crypto.encode.Base58
 import scorex.transaction.{TransactionModule, LagonakiTransaction}
-import scorex.transaction.box.PublicKeyProposition
-import scorex.transaction.state.LagonakiState
+import scorex.transaction.box.{PublicKey25519Proposition, PublicKeyProposition}
+import scorex.transaction.state.{PrivateKey25519Holder, LagonakiState}
+import scorex.wallet.Wallet
 
 import scala.util.{Failure, Success, Try}
 
@@ -21,6 +22,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   extends ApiRoute with CommonTransactionApiFunctions {
 
   private val wallet = application.transactionModule.wallet
+
 
   override lazy val route =
     pathPrefix("addresses") {
@@ -128,7 +130,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def generatingBalance: Route = {
     path("generatingbalance" / Segment) { case address =>
       getJsonRoute {
-        if (!Account.isValidAddress(address)) {
+        if (!PublicKeyProposition.isValidAddress(address)) {
           InvalidAddress.json
         } else {
           Json.obj(
@@ -195,7 +197,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def validate: Route = {
     path("validate" / Segment) { case address =>
       getJsonRoute {
-        Json.obj("address" -> address, "valid" -> Account.isValidAddress(address))
+        Json.obj("address" -> address, "valid" -> PublicKeyProposition.isValidAddress(address))
       }
     }
   }
@@ -205,7 +207,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def root: Route = {
     path("addresses") {
       getJsonRoute {
-        JsArray(wallet.privateKeyAccounts().map(a => JsString(a.address)))
+        JsArray(wallet.privateKeyAccounts().map(a => JsString(a.publicCommitment.address)))
       }
     }
   }
@@ -220,7 +222,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
     path("seq" / IntNumber / IntNumber) { case (start, end) =>
       getJsonRoute {
         JsArray(
-          wallet.privateKeyAccounts().map(a => JsString(a.address)).slice(start, end)
+          wallet.privateKeyAccounts().map(a => JsString(a.publicAddress)).slice(start, end)
         )
       }
     }
@@ -233,10 +235,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
       withAuth {
         postJsonRoute {
           walletNotExists(wallet).getOrElse {
-            wallet.generateNewAccount() match {
-              case Some(pka) => Json.obj("address" -> pka.address)
-              case None => Unknown.json
-            }
+            Json.obj("address" -> wallet.generateNewAccount().publicCommitment.address)
           }
         }
       }
@@ -265,12 +264,12 @@ case class AddressApiRoute(override val application: Application)(implicit val c
               wallet.privateKeyAccount(address) match {
                 case None => WalletAddressNotExists.json
                 case Some(sh) =>
-                  Try(sh.sign(account, message.getBytes(StandardCharsets.UTF_8))) match {
+                  Try(sh.sign(message.getBytes(StandardCharsets.UTF_8))) match {
                     case Success(signature) =>
                       val msg = if (encode) Base58.encode(message.getBytes) else message
                       Json.obj("message" -> msg,
-                        "publickey" -> Base58.encode(account.publicKey),
-                        "signature" -> Base58.encode(signature))
+                        "publickey" -> Base58.encode(sh.publicCommitment.id),
+                        "signature" -> Base58.encode(signature.bytes))
                     case Failure(t) => json(t)
                   }
               }

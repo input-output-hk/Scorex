@@ -6,19 +6,22 @@ import com.google.common.primitives.{Bytes, Ints}
 import org.h2.mvstore.{MVMap, MVStore}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash
-import scorex.transaction.box.Proposition
-import scorex.transaction.state.{SecretHolder, SecretHolderGenerator}
+import scorex.transaction.TransactionModule
+import scorex.transaction.box.AddressableProposition
+import scorex.transaction.state.SecretHolderGenerator
 import scorex.utils.{ScorexLogging, randomBytes}
 
 import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
 
 //todo: add accs txs?
-class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[File],
-                                       password: String,
-                                       seedOpt: Option[Array[Byte]],
-                                       generator: SecretHolderGenerator[SH])
+class Wallet[TM <: TransactionModule, P <: TM#P with AddressableProposition](walletFileOpt: Option[File],
+                                                                             password: String,
+                                                                             seedOpt: Option[Array[Byte]],
+                                                                             generator: SecretHolderGenerator[TM#SH])
   extends ScorexLogging {
+
+  type SH = TM#SH
 
   private val NonceFieldName = "nonce"
 
@@ -60,13 +63,13 @@ class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[F
   }
   val seed: Array[Byte] = seedPersistence.get("seed")
 
-  private val accountsCache: TrieMap[Proposition, SH] = {
+  private val accountsCache: TrieMap[String, SH] = {
     val shs = accountsPersistence
       .keys
       .map(k => accountsPersistence.get(k))
       .map(seed => generator.generateKeys(seed))
 
-    TrieMap(shs.map(sh => sh.publicCommitment -> sh).toSeq: _*)
+    TrieMap(shs.map(sh => sh.publicAddress -> sh).toSeq: _*)
   }
 
   def privateKeyAccounts(): Seq[SH] = accountsCache.values.toSeq
@@ -79,7 +82,7 @@ class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[F
     val accountSeed = generateAccountSeed(seed, nonce)
     val secretHolder: SH = generator.generateKeys(accountSeed)
 
-    accountsCache += secretHolder.publicCommitment -> secretHolder
+    accountsCache += secretHolder.publicAddress -> secretHolder
     accountsPersistence.put(accountsPersistence.lastKey() + 1, secretHolder.bytes)
     database.commit()
 
@@ -99,11 +102,11 @@ class Wallet[P <: Proposition, SH <: SecretHolder[P, _]](walletFileOpt: Option[F
       } else false
     }
     database.commit()
-    accountsCache -= account.publicCommitment
+    accountsCache -= account.publicAddress
     res.isDefined
   }
 
-  def privateKeyAccount(address: Proposition): Option[SH] = accountsCache.get(address)
+  def privateKeyAccount(publicAddress: String): Option[SH] = accountsCache.get(publicAddress)
 
   def close(): Unit = if (!database.isClosed) {
     database.commit()

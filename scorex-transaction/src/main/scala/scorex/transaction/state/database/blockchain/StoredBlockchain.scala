@@ -80,7 +80,6 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
     }
   }
 
-
   override private[transaction] def discardBlock(): BlockChain = synchronized {
     require(height() > 1, "Chain is empty or contains genesis block only, can't make rollback")
     val h = height()
