@@ -27,6 +27,12 @@ trait TestingCommons {
     seq(Random.nextInt(seq.length))
   }
 
+  def profile[R](block: => R): Long = {
+    val start = System.currentTimeMillis()
+    block
+    System.currentTimeMillis() - start
+  }
+
 }
 
 object TestingCommons {
