@@ -11,14 +11,21 @@ import scorex.utils._
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.util.Random
 
 trait TestingCommons {
 
   implicit object TestTransactionLayerSettings extends TransactionSettings {
     override val settingsJSON: JsObject = Json.obj()
   }
+
   implicit val consensusModule = application.consensusModule
   implicit val transactionModule = application.transactionModule
+
+  def randomFrom[T](seq: Seq[T]): T = {
+    require(seq.nonEmpty)
+    seq(Random.nextInt(seq.length))
+  }
 
 }
 
