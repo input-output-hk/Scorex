@@ -1,6 +1,7 @@
 package scorex.lagonaki.integration.api
 
 import org.scalatest.{FunSuite, Matchers}
+import scorex.crypto.encode.Base58
 import scorex.lagonaki.TransactionTestingCommons
 
 class PaymentAPISpecification extends FunSuite with Matchers with TransactionTestingCommons {
@@ -13,8 +14,10 @@ class PaymentAPISpecification extends FunSuite with Matchers with TransactionTes
     val r = accounts.last.address
     val amount = 2
     val fee = 1
+    val attachement = Base58.encode(Array.fill(32)(12: Byte))
 
-    val json = "{\"amount\":" + amount + ",\"fee\":" + fee + ",\"sender\":\"" + s + "\",\"recipient\":\"" + r + "\"\n}"
+    val json = "{\"amount\":" + amount + ",\"fee\":" + fee + ",\"attachment\":\"" + attachement +"\",\"sender\":\"" +
+      s + "\",\"recipient\":\"" + r + "\"\n}"
     val req = POST.request("/payment", body = json)
     (req \ "type").as[Int] shouldBe 2
     (req \ "fee").as[Int] shouldBe 1
