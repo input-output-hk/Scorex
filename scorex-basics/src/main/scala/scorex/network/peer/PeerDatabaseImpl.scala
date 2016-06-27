@@ -1,6 +1,7 @@
 package scorex.network.peer
 
 import java.net.InetSocketAddress
+import java.util
 
 import org.h2.mvstore.{MVMap, MVStore}
 import scorex.settings.Settings
@@ -21,18 +22,30 @@ class PeerDatabaseImpl(settings: Settings, filename: Option[String]) extends Pee
   private lazy val ownNonce = settings.nodeNonce
 
   override def addOrUpdateKnownPeer(address: InetSocketAddress, peerInfo: PeerInfo): Unit = {
-    val updatedPeerInfo = Option(whitelistPersistence.get(address)).map { case dbPeerInfo =>
-      val nonceOpt = peerInfo.nonce.orElse(dbPeerInfo.nonce)
-      val nodeNameOpt = peerInfo.nodeName.orElse(dbPeerInfo.nodeName)
-      PeerInfo(peerInfo.lastSeen, nonceOpt, nodeNameOpt)
-    }.getOrElse(peerInfo)
-    whitelistPersistence.put(address, updatedPeerInfo)
-    database.commit()
+    if (!isBlacklisted(address)) {
+      val updatedPeerInfo = Option(whitelistPersistence.get(address)).map { case dbPeerInfo =>
+        val nonceOpt = peerInfo.nonce.orElse(dbPeerInfo.nonce)
+        val nodeNameOpt = peerInfo.nodeName.orElse(dbPeerInfo.nodeName)
+        PeerInfo(peerInfo.lastSeen, nonceOpt, nodeNameOpt)
+      }.getOrElse(peerInfo)
+      whitelistPersistence.put(address, updatedPeerInfo)
+      database.commit()
+    }
   }
 
   override def blacklistPeer(address: InetSocketAddress): Unit = {
-    whitelistPersistence.remove(address)
-    if (!isBlacklisted(address)) blacklist += address.getHostName -> System.currentTimeMillis()
+    if (!isBlacklisted(address)) {
+      blacklist += address.getHostName -> System.currentTimeMillis()
+      new util.ArrayList(whitelistPersistence.keyList())
+        .filter(_.getHostName == address.getHostName)
+        .foreach(whitelistPersistence.remove(_))
+      database.commit()
+    }
+  }
+
+  override def removeFromBlacklist(address: InetSocketAddress): Unit = {
+    blacklist -= address.getHostName
+    whitelistPersistence.put(address, PeerInfo(System.currentTimeMillis(), None, None))
     database.commit()
   }
 

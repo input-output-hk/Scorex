@@ -89,14 +89,15 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
       val localScore = history.score()
       if (networkScore > localScore) {
         log.info(s"networkScore=$networkScore > localScore=$localScore")
-        val lastIds = history.lastBlockIds(100)
+        val lastIds = history.lastBlockIds(application.blockStorage.MaxRollback)
         val msg = Message(GetSignaturesSpec, Right(lastIds), None)
         networkControllerRef ! NetworkController.SendToNetwork(msg, SendToChosen(witnesses))
-        gotoGettingExtension(networkScore, witnesses)
+        lastUpdate = System.currentTimeMillis()
+        gotoGettingExtension(witnesses)
       } else gotoSynced()
   }: Receive)
 
-  def gettingExtension(betterScore: BigInt, witnesses: Seq[ConnectedPeer]): Receive = state(HistorySynchronizer.GettingExtension, {
+  def gettingExtension(witnesses: Seq[ConnectedPeer]): Receive = state(HistorySynchronizer.GettingExtension, {
     //todo: aggregating function for block ids (like score has) and blockIds type
     case DataFromPeer(msgId, blockIds: Seq[Block.BlockId]@unchecked, connectedPeer)
       if msgId == SignaturesSpec.messageCode &&
@@ -108,7 +109,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
 
       val toDownload = blockIds.tail.filter(b => !application.history.contains(b))
       if (application.history.contains(common) && toDownload.nonEmpty) {
-        Try(application.blockStorage.removeAfter(common)) //todo we don't need this call for blockTree
+        application.blockStorage.removeAfter(common)
         gotoGettingBlocks(witnesses, toDownload.map(_ -> None))
         blockIds.tail.foreach { blockId =>
           val msg = Message(GetBlockSpec, Right(blockId), None)
@@ -138,12 +139,13 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
             if (idx == 0) {
               val toProcess = updBlocks.takeWhile(_._2.isDefined).map(_._2.get)
               log.info(s"Going to process ${toProcess.size} blocks")
-              toProcess.find(bp => !processNewBlock(bp, local = false)).foreach { case failedBlock =>
-                log.warn(s"Can't apply block: ${failedBlock.json}")
-                if (history.lastBlock.uniqueId sameElements failedBlock.referenceField.value) {
-                  connectedPeer.handlerRef ! PeerConnectionHandler.Blacklist
-                }
-                gotoSyncing()
+              toProcess.find(!processNewBlock(_, local = false)).foreach {
+                case failedBlock =>
+                  log.warn(s"Can't apply block: ${failedBlock.json}")
+                  if (history.lastBlock.uniqueId sameElements failedBlock.referenceField.value) {
+                    connectedPeer.handlerRef ! PeerConnectionHandler.Blacklist
+                  }
+                  gotoSyncing()
               }
               if (updBlocks.size > toProcess.size) gotoGettingBlocks(witnesses, updBlocks.drop(toProcess.length))
               else gotoSyncing()
@@ -157,7 +159,7 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
       processNewBlock(block, local = true)
 
     case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
-      if (networkScore > history.score()) gotoGettingExtension(networkScore, witnesses)
+      if (networkScore > history.score()) gotoGettingExtension(witnesses)
 
     case DataFromPeer(msgId, block: Block@unchecked, _)
       if msgId == BlockMessageSpec.messageCode && block.cast[Block].isDefined =>
@@ -165,27 +167,28 @@ class HistorySynchronizer(application: Application) extends ViewSynchronizer wit
   }: Receive)
 
   private def gotoSyncing(): Receive = {
-    log.debug("Transition to syncing")
+    log.debug("Transition to syncing " + application.settings.nodeName)
     context become syncing
     scoreObserver ! GetScore
     blockGenerator ! StopGeneration
     syncing
   }
 
-  private def gotoGettingExtension(betterScore: BigInt, witnesses: Seq[ConnectedPeer]): Unit = {
-    log.debug("Transition to gettingExtension")
+  private def gotoGettingExtension(witnesses: Seq[ConnectedPeer]): Unit = {
+    log.debug("Transition to gettingExtension " + application.settings.nodeName)
     blockGenerator ! StopGeneration
-    context become gettingExtension(betterScore, witnesses)
+    context become gettingExtension(witnesses)
+    gettingExtension(witnesses)
   }
 
   private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block])]): Receive = {
-    log.debug("Transition to gettingBlocks")
+    log.debug("Transition to gettingBlocks " + application.settings.nodeName )
     context become gettingBlocks(witnesses, blocks)
     gettingBlocks(witnesses, blocks)
   }
 
   private def gotoSynced(): Receive = {
-    log.debug("Transition to synced")
+    log.debug("Transition to synced " + application.settings.nodeName)
     blockGenerator ! StartGeneration
     context become synced
     synced

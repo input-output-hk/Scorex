@@ -36,15 +36,25 @@ trait TestingCommons {
 }
 
 object TestingCommons {
-  lazy val applications = {
-    val apps = List(
-      new LagonakiApplication("settings-test.json"),
-      new LagonakiApplication("settings-local1.json"),
-      new LagonakiApplication("settings-local2.json")
-    )
-    apps.foreach(_.run())
+  lazy val applications = initialize(Seq(
+    "settings-test.json", "settings-local1.json", "settings-local2.json"))
+
+  lazy val application = applications.head
+
+  def initialize(settingsFileNames: Seq[String]): Seq[LagonakiApplication] = {
+    val apps = settingsFileNames.map(new LagonakiApplication(_))
+
+    apps.foreach { app =>
+      app.run()
+      Thread sleep 500
+    }
+
     apps.foreach { a =>
-      if (a.wallet.privateKeyAccounts().isEmpty) a.wallet.generateNewAccounts(3)
+      if (a.wallet.privateKeyAccounts().isEmpty) {
+        val accs = a.wallet.generateNewAccounts(3)
+        val b = accs.map(acc => a.consensusModule.generatingBalance(acc)(a.transactionModule))
+        b
+      }
       untilTimeout(20.seconds, 1.second) {
         val request = Http(url(peerUrl(a) + "/consensus/algo").GET)
         val response = Await.result(request, 10.seconds)
@@ -52,12 +62,11 @@ object TestingCommons {
         assert((json \ "consensusAlgo").asOpt[String].isDefined)
       }
     }
+
     apps
   }
 
-  lazy val application = applications.head
-
-  def peerUrl(a: LagonakiApplication = application): String =
+  def peerUrl(a: LagonakiApplication): String =
     "http://" + a.settings.bindAddress + ":" + a.settings.rpcPort
 
   def postRequest(us: String,
