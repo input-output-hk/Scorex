@@ -50,6 +50,8 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
 
     val syncingPeer = peers.filter(_ != bestPeer).head
 
+    log.debug(s"syncingPeer is ${syncingPeer.settings.nodeName}")
+
     checkStates(
       testTimeout,
       Seq(
@@ -93,7 +95,7 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
                         current: Option[HistorySynchronizer.Status],
                         follow: Seq[HistorySynchronizer.Status],
                         historySynchronizer: ActorRef): Unit = {
-    val delay = 100 milliseconds
+    val delay = 500 milliseconds
 
     implicit val t = Timeout(delay)
 
@@ -209,19 +211,7 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
 
         val peersToBlock = Await.result((peerManager ? PeerManager.FilterPeers(Broadcast)).mapTo[Seq[ConnectedPeer]], timeout.duration)
 
-        for (peerToBlock <- peersToBlock) {
-          peerManager ! AddToBlacklist(peerToBlock.socketAddress)
-        }
-
-        untilTimeout(5.seconds) {
-          Await.result((peerManager ? GetBlacklistedPeers).mapTo[Seq[String]], timeout.duration).nonEmpty shouldBe true
-        }
-
-        peersToBlock.foreach {
-          peerToBlock =>
-            peerManager ! Disconnected(peerToBlock.socketAddress)
-            peerToBlock.handlerRef ! PeerConnectionHandler.CloseConnection
-        }
+        peersToBlock.foreach { _.handlerRef ! PeerConnectionHandler.Blacklist }
 
         untilTimeout(5.seconds) {
           Await.result((peerManager ? GetBlacklistedPeers).mapTo[Seq[String]], timeout.duration).nonEmpty shouldBe true
