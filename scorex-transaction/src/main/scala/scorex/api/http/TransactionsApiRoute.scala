@@ -5,27 +5,23 @@ import javax.ws.rs.Path
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
-import play.api.libs.json.{JsArray, Json}
 import scorex.app.Application
-import scorex.crypto.encode.Base58
-import scorex.transaction.state.LagonakiState
-
-import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.state.database.blockchain.StoredBlockchain
-
-import scala.util.{Success, Try}
+import scorex.transaction.SimpleTransactionModule
+import scorex.transaction.box.PublicKey25519Proposition
+import scala.util.Success
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 @Path("/transactions")
 @Api(value = "/transactions", description = "Information about transactions")
 case class TransactionsApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
-  //todo: asInstanceOf, also ugly & dangerous casting
-  private val state: LagonakiState = application.transactionModule.state.asInstanceOf[LagonakiState]
+  private val transactionalModule = application.transactionModule.asInstanceOf[SimpleTransactionModule[_, _]] //todo: aIO
 
   override lazy val route =
     pathPrefix("transactions") {
-      unconfirmed ~ address ~ adressLimit ~ info
+      unconfirmed ~ address ~ adressLimit  //~ info
     }
 
   //TODO implement general pagination
@@ -38,10 +34,16 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
   def adressLimit: Route = {
     path("address" / Segment / "limit" / IntNumber) { case (address, limit) =>
       getJsonRoute {
-        val txJsons = state.accountTransactions(address)
-          .takeRight(limit)
-          .map(_.json)
-        Json.arr(txJsons)
+        PublicKey25519Proposition.validPubKey(address) match{
+          case Success(pubkey) =>
+            transactionalModule
+              .accountTransactions(pubkey)
+              .takeRight(limit)
+              .map(_.json)
+              .asJson
+          case _ =>
+            ApiError.invalidAddress
+        }
       }
     }
   }
@@ -54,12 +56,20 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
   def address: Route = {
     path("address" / Segment) { case address =>
       getJsonRoute {
-        val txJsons = state.accountTransactions(address).map(_.json)
-        Json.arr(txJsons)
+        PublicKey25519Proposition.validPubKey(address) match{
+          case Success(pubkey) =>
+            transactionalModule
+              .accountTransactions(pubkey)
+              .map(_.json)
+              .asJson
+          case _ =>
+            ApiError.invalidAddress
+        }
       }
     }
   }
 
+  /* todo: reimplement or throw away?
   @Path("/info/{signature}")
   @ApiOperation(value = "Info", notes = "Get transaction info", httpMethod = "GET")
   @ApiImplicitParams(Array(
@@ -70,27 +80,27 @@ case class TransactionsApiRoute(override val application: Application)(implicit 
       getJsonRoute {
         Base58.decode(encoded) match {
           case Success(sig) =>
-            state.included(sig, None) match {
+            transactionalModule.included(sig, None) match {
               case Some(h) =>
                 Try {
-                  val block = application.blockStorage.history.asInstanceOf[StoredBlockchain].blockAt(h).get
+                  val block = application.consensusModule.asInstanceOf[StoredBlockchain[_, _]].blockAt(h).get
                   val tx = block.transactions.filter(_.proof.bytes sameElements sig).head
                   tx.json
-                }.getOrElse(Json.obj("status" -> "error", "details" -> "Internal error"))
-              case None => Json.obj("status" -> "error", "details" -> "Transaction is not in blockchain")
+                }.getOrElse(Map("status" -> "error", "details" -> "Internal error").asJson)
+              case None => Map("status" -> "error", "details" -> "Transaction is not in blockchain").asJson
             }
-          case _ => Json.obj("status" -> "error", "details" -> "Incorrect signature")
+          case _ => Map("status" -> "error", "details" -> "Incorrect signature").asJson
         }
       }
     }
-  }
+  } */
 
   @Path("/unconfirmed")
   @ApiOperation(value = "Unconfirmed", notes = "Get list of unconfirmed transactions", httpMethod = "GET")
   def unconfirmed: Route = {
     path("unconfirmed") {
       getJsonRoute {
-        JsArray(UnconfirmedTransactionsDatabaseImpl.all().map(_.json))
+        transactionalModule.all().map(_.json).asJson
       }
     }
   }

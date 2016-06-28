@@ -1,29 +1,33 @@
 package scorex.api.http
 
-import play.api.libs.json.{JsObject, JsValue}
-import scorex.transaction.TransactionModule
-import scorex.transaction.box.{AddressableProposition, PublicKeyProposition}
+
+import io.circe.Json
+import scorex.api.http.ApiError._
+import scorex.api.http.SimpleTransactionalModuleErrors.{walletAddressNotExists, walletAlreadyExists, walletNotExist}
+import scorex.transaction.Wallet25519Only
+import scorex.transaction.box.PublicKey25519Proposition
+import scorex.transaction.state.PrivateKey25519Holder
 import scorex.wallet.Wallet
 
 
 trait CommonTransactionApiFunctions extends CommonApiFunctions {
 
-  protected[api] def walletExists()(implicit wallet: Wallet[_, _]): Option[JsObject] =
-    if (wallet.exists()) Some(WalletAlreadyExists.json) else None
-
-  protected[api] def withPrivateKeyAccount[TM <: TransactionModule](wallet: Wallet[TM, TM#P with AddressableProposition], address: String)
-                                                                   (action: TM#SH => JsValue): JsValue =
+  protected[api] def withPrivateKeyAccount(wallet: Wallet25519Only, address: String)
+                                          (action: PrivateKey25519Holder => Json): Json =
     walletNotExists(wallet).getOrElse {
-      if (!PublicKeyProposition.isValidAddress(address)) {
-        InvalidAddress.json
+      if (!PublicKey25519Proposition.validPubKey(address).isSuccess) {
+        invalidAddress
       } else {
         wallet.privateKeyAccount(address) match {
-          case None => WalletAddressNotExists.json
+          case None => walletAddressNotExists
           case Some(account) => action(account)
         }
       }
     }
 
-  protected[api] def walletNotExists(wallet: Wallet[_, _]): Option[JsObject] =
-    if (!wallet.exists()) Some(WalletNotExist.json) else None
+  protected[api] def walletExists()(implicit wallet: Wallet[_, _, _]): Option[Json] =
+    if (wallet.exists()) Some(walletAlreadyExists) else None
+
+  protected[api] def walletNotExists(wallet: Wallet[_, _, _]): Option[Json] =
+    if (!wallet.exists()) Some(walletNotExist) else None
 }

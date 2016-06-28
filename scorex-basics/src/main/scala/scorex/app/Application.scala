@@ -4,15 +4,15 @@ import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import scorex.api.http.{ApiRoute, CompositeHttpService}
-import scorex.block.Block
+import scorex.block.{Block, TransactionalData, ConsensusData}
 import scorex.consensus.ConsensusModule
 import scorex.consensus.mining.BlockGeneratorController
 import scorex.network._
 import scorex.network.message.{BasicMessagesRepo, MessageHandler, MessageSpec}
 import scorex.network.peer.PeerManager
 import scorex.settings.Settings
-import scorex.transaction.state.SecretHolderGenerator
-import scorex.transaction.TransactionModule
+import scorex.transaction.{Transaction, TransactionModule}
+import scorex.transaction.box.Proposition
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,18 +29,16 @@ trait Application extends ScorexLogging {
   //settings
   implicit val settings: Settings
 
-  type TM <: TransactionModule
-  type CM <: ConsensusModule[TM]
+  type P <: Proposition
+  type TX <: Transaction[P, TX]
+  type CData <: ConsensusData
+  type TData <: TransactionalData[TX]
 
-  type Prop = TM#P
-  type SH = TM#SH
-  type TX = TM#TX
+  type BType = Block[P, CData, TData]
 
   //modules
-  implicit val consensusModule: CM
-  implicit val transactionModule: TM
-
-  implicit val generator: SecretHolderGenerator[SH]
+  implicit val consensusModule: ConsensusModule[P, CData, BType]
+  implicit val transactionModule: TransactionModule[P, TX, TData]
 
   //api
   val apiRoutes: Seq[ApiRoute]
@@ -50,7 +48,7 @@ trait Application extends ScorexLogging {
 
   protected val additionalMessageSpecs: Seq[MessageSpec[_]]
 
-  lazy val basicMessagesSpecsRepo = new BasicMessagesRepo()
+  lazy val basicMessagesSpecsRepo = new BasicMessagesRepo[P, CData, TData, BType]()
 
   //p2p
   lazy val upnp = new UPnP(settings)
@@ -63,10 +61,7 @@ trait Application extends ScorexLogging {
   lazy val networkController = actorSystem.actorOf(Props(classOf[NetworkController], this), "networkController")
   lazy val blockGenerator = actorSystem.actorOf(Props(classOf[BlockGeneratorController], this), "blockGenerator")
 
-  //interface to append log and state
-  lazy val history = consensusModule.history
-
-  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer[TX]], this), "HistorySynchronizer")
+  lazy val historySynchronizer = actorSystem.actorOf(Props(classOf[HistorySynchronizer], this), "HistorySynchronizer")
   lazy val historyReplier = actorSystem.actorOf(Props(classOf[HistoryReplier], this), "HistoryReplier")
 
 
@@ -111,10 +106,10 @@ trait Application extends ScorexLogging {
   }
 
   def checkGenesis(): Unit = {
-    if (consensusModule.history.isEmpty) {
-      val genesisBlock = Block.genesis(settings.genesisTimestamp)
+    if (consensusModule.isEmpty) {
+      val genesisBlock: BType = Block.genesis(settings.genesisTimestamp)
       consensusModule.appendBlock(genesisBlock)
       log.info("Genesis block has been added to the state")
     }
-  }.ensuring(consensusModule.history.height() >= 1)
+  }.ensuring(consensusModule.height() >= 1)
 }

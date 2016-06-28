@@ -1,14 +1,14 @@
 package scorex.block
 
-import com.google.common.primitives.{Ints, Longs}
-import play.api.libs.json.Json
+import io.circe.Json
 import scorex.consensus.ConsensusModule
-import scorex.crypto.encode.Base58
-import scorex.serialization.BytesSerializable
-import scorex.transaction.TransactionModule
+import scorex.serialization.{BytesSerializable, JsonSerializable}
+import scorex.transaction.box.Proposition
+import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
+import shapeless._
 
-import scala.util.{Failure, Try}
+import scala.util.Try
 
 /**
   * A block is an atomic piece of data network participates are agreed on.
@@ -26,161 +26,112 @@ import scala.util.{Failure, Try}
   * - additional data: block structure version no, timestamp etc
   */
 
-trait Block extends BytesSerializable with ScorexLogging {
+class Block[P <: Proposition, CData <: ConsensusData, TData <: TransactionalData[_]](
+                                                                             val version: Byte,
+                                                                             val timestamp: Long,
+                                                                             val consensusData: CData,
+                                                                             val transactionalData: TData)
+  extends BytesSerializable with JsonSerializable {
 
-  type TM <: TransactionModule
-  type CM <: ConsensusModule[TM]
+  type TDataExposed = TData
+  type BlockId = ConsensusData.BlockId
 
-  implicit val transactionModule: TM
-  implicit val consensusModule: CM
+  val blockFields = version :: timestamp :: consensusData.consensusFields :: transactionalData.transactionalFields :: HNil
 
-  type ConsensusDataType = consensusModule.ConsensusBlockData
-  type TransactionDataType = transactionModule.TBD
+  lazy val bytes: Array[Byte] = ???
 
-  val consensusDataField: BlockField[ConsensusDataType]
-  val transactionDataField: BlockField[TransactionDataType]
+  lazy val json: Json = ???
 
-  val versionField: ByteBlockField
-  val timestampField: LongBlockField
-
-  lazy val id = consensusModule.id(this)
-
-  lazy val parentId = consensusModule.parentId(this)
-
-  lazy val encodedId: String = Base58.encode(consensusModule.id(this))
-
-  lazy val transactions = transactionModule.transactions(this)
-
-  lazy val totalFee = consensusModule.feesDistribution(this).values.sum
-
-  lazy val json =
+  /*lazy val json =
     versionField.json ++
       timestampField.json ++
       consensusDataField.json ++
       transactionDataField.json ++
       Json.obj(
-        "fee" -> totalFee,
+        "fee" -> consensusModule.totalFee(this),
         "blocksize" -> bytes.length
-      )
+      )*/
 
-  lazy val bytes = {
-    val txBytesSize = transactionDataField.bytes.length
-    val txBytes = Ints.toByteArray(txBytesSize) ++ transactionDataField.bytes
-
-    val cBytesSize = consensusDataField.bytes.length
-    val cBytes = Ints.toByteArray(cBytesSize) ++ consensusDataField.bytes
-
-    versionField.bytes ++
-      timestampField.bytes ++
-      cBytes ++
-      txBytes
-  }
-
-  lazy val producers = consensusModule.producers(this)
-
-  def isValid: Boolean = {
-    if (consensusModule.history.contains(this)) true //applied blocks are valid
-    else {
-      lazy val consensus = consensusModule.isValid(this)
-      lazy val transaction = transactionModule.isValid(this)
-
-      if (!consensus) log.debug(s"Invalid block $encodedId: consensus data is not valid")
-      else if (!transaction) log.debug(s"Invalid block $encodedId: transaction data is not valid")
-
-      consensus && transaction
-    }
-  }
-
+  /*
   override def equals(obj: Any): Boolean = obj match {
-    case b: Block => consensusModule.id(b) sameElements consensusModule.id(this)
+    case b: Block => consensusModule.id(b).unsized sameElements consensusModule.id(this).unsized
     case _ => false
-  }
+  } */
+}
+
+object SerializeToBytes extends Poly1 {
+  implicit def caseByte = at[Byte](b => Array(b))
+
+  implicit def caseBytesSerializable[B <: BytesSerializable] = at[B](_.bytes)
+
+  implicit def default[A] = at[A](a => a)
 }
 
 
-object Block extends ScorexLogging {
+trait ConsensusData {
+  import ConsensusData.BlockId
+
+  val BlockIdLength: Int
+
+  type ConsensusFields <: HList
+
+  val consensusFields: ConsensusFields
+
+  val parentId: BlockId
+}
+
+object ConsensusData {
   type BlockId = Array[Byte]
+}
 
-  //TODO BytesParseable[Block] ??
-  def parseBytes[TMOD <: TransactionModule](bytes: Array[Byte])
-                                         (implicit consModule: ConsensusModule[TMOD],
-                                          transModule: TMOD): Try[Block] = Try {
+trait TransactionalData[TX <: Transaction[_, TX]] {
+  type TransactionalHeaderFields <: HList
 
-    val version = bytes.head
+  val mbTransactions: Option[Traversable[TX]]
 
-    var position = 1
+  val transactionalHeaderFields: TransactionalHeaderFields
 
-    val timestamp = Longs.fromByteArray(bytes.slice(position, position + 8))
-    position += 8
+  val headerOnly = mbTransactions.isDefined
 
-    val cBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
-    position += 4
-    val cBytes = bytes.slice(position, position + cBytesLength)
-    val consBlockField = consModule.builder.parseBytes(cBytes).get
-    position += cBytesLength
+  val transactionalFields = mbTransactions match {
+    case Some(txs) => transactionalHeaderFields :: txs :: HNil
+    case None => transactionalHeaderFields
+  }
+}
 
-    val tBytesLength = Ints.fromByteArray(bytes.slice(position, position + 4))
-    position += 4
-    val tBytes = bytes.slice(position, position + tBytesLength)
-    val txBlockField = transModule.builder.parseBytes(tBytes).get
-    position += tBytesLength
+object Block extends ScorexLogging {
+  val Version = 1: Byte
 
-    new Block {
 
-      override type TM = TMOD
-      override type CM = ConsensusModule[TMOD]
-
-      override val transactionDataField = txBlockField.asInstanceOf[BlockField[TransactionDataType]]
-
-      override implicit val consensusModule = consModule
-      override implicit val transactionModule = transModule
-
-      override val versionField: ByteBlockField = ByteBlockField("version", version)
-
-      override val consensusDataField = consBlockField.asInstanceOf[BlockField[ConsensusDataType]]
-
-      override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
-    }
-  }.recoverWith { case t: Throwable =>
-    log.error("Error when parsing block", t)
-    t.printStackTrace()
-    Failure(t)
+  def parse[P <: Proposition, CData <: ConsensusData, TData <: TransactionalData[_], B <: Block[P, CData, TData]](bytes: Array[Byte])
+                                                                  (implicit consensusModule: ConsensusModule[P, CData, B],
+                                                                   transactionalModule: TransactionModule[P, _, TData]): Try[B] = {
+    ???
   }
 
-  def build[TMo <: TransactionModule, CMo <: ConsensusModule[TMo]](version: Byte,
-                                                                   timestamp: Long,
-                                                                   consensusData: CMo#ConsensusBlockData,
-                                                                   transactionData: TMo#TBD)
-                                                                  (implicit consModule: CMo,
-                                                                   transModule: TMo): Block = {
-    new Block {
-
-      override type TM = TMo
-      override type CM = CMo
-
-      override implicit val transactionModule: TM = transModule
-      override implicit val consensusModule: CM = consModule
-
-      override val versionField: ByteBlockField = ByteBlockField("version", version)
-
-      override val transactionDataField = transactionModule.builder.formBlockData(transactionData.asInstanceOf[transactionModule.TBD])
-
-      override val consensusDataField = consensusModule.builder.formBlockData(consensusData.asInstanceOf[consensusModule.ConsensusBlockData])
-      override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
-    }
+  def build[P <: Proposition, TX <: Transaction[P, TX], CData <: ConsensusData, TData <: TransactionalData[TX]](consensusData: CData)
+                                                                                             (implicit transactionalModule: TransactionModule[P, TX, TData]): Block[P, CData, TData] = {
+    val timestamp = System.currentTimeMillis()
+    new Block(Version, timestamp, consensusData, transactionalModule.packUnconfirmed())
   }
 
-  def genesis[TMOD <: TransactionModule](timestamp: Long = 0L)(implicit transModule: TMOD, consModule: ConsensusModule[TMOD]): Block = new Block {
-    override type TM = TMOD
-    override type CM = consModule.type
+  def genesis[P <: Proposition, CData <: ConsensusData, TData <: TransactionalData[_]](genesisTimestamp: Long)
+                                                                    (implicit consensusModule: ConsensusModule[P, CData, _ <: Block[P, CData, TData]],
+                                                                     transactionalModule: TransactionModule[P, _, TData]): Block[P, CData, TData] = {
+    new Block(Version, genesisTimestamp, consensusModule.genesisData, transactionalModule.genesisData)
+  }
 
-    override implicit val transactionModule: TM = transModule
-    override implicit val consensusModule: CM = consModule
+  def isValid[P <: Proposition, CData <: ConsensusData, TData <: TransactionalData[_], B <: Block[P, CData, TData]](block: B)(implicit consensusModule: ConsensusModule[P, CData, B],
+                                                                                                 transactionalModule: TransactionModule[P, _, TData]): Boolean = {
+    if (consensusModule.contains(block)) true //applied blocks are valid
+    else {
+      lazy val consensus = consensusModule.isValid(block)
+      lazy val transaction = transactionalModule.isValid(block)
 
-    override val versionField: ByteBlockField = ByteBlockField("version", 1)
-    override val transactionDataField = transactionModule.builder.genesisData
-    override val consensusDataField = consensusModule.builder.genesisData
+      if (!consensus) log.debug(s"Invalid block ${consensusModule.encodedId(block)}: consensus data is not valid")
+      else if (!transaction) log.debug(s"Invalid block ${consensusModule.encodedId(block)}: transaction data is not valid")
 
-    override val timestampField: LongBlockField = LongBlockField("timestamp", timestamp)
+      consensus && transaction
+    }
   }
 }

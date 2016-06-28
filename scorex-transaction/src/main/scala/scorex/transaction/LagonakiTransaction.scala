@@ -1,28 +1,28 @@
 package scorex.transaction
 
 import java.util
+
 import com.google.common.primitives.{Bytes, Ints, Longs}
-import play.api.libs.json.Json
 import scorex.crypto.encode.Base58
-import scorex.serialization.{BytesParseable, BytesSerializable}
+import scorex.serialization.{BytesParseable, BytesSerializable, JsonSerializable}
 import scorex.transaction.LagonakiTransaction.TransactionType
 import scorex.transaction.account.PublicKey25519NoncedBox
-import scorex.transaction.box.{PublicKeyProposition, Box, PublicKey25519Proposition}
+import scorex.transaction.box.{Box, PublicKey25519Proposition, PublicKeyProposition}
 import scorex.transaction.proof.Signature25519
-import scorex.transaction.state.{PrivateKey25519Holder, MinimalState}
+import scorex.transaction.state.{MinimalState, PrivateKey25519Holder}
 import shapeless.Sized
 
 import scala.util.{Failure, Success, Try}
-
+import io.circe.syntax._
 
 case class LagonakiTransaction(sender: PublicKey25519Proposition,
-                          recipient: PublicKey25519Proposition,
-                          txnonce: Int,
-                          amount: Long,
-                          override val fee: Long,
-                          override val timestamp: Long,
-                          signature: Signature25519)
-  extends Transaction[PublicKey25519Proposition] with BytesSerializable {
+                               recipient: PublicKey25519Proposition,
+                               txnonce: Int,
+                               amount: Long,
+                               override val fee: Long,
+                               override val timestamp: Long,
+                               signature: Signature25519)
+  extends Transaction[PublicKey25519Proposition, LagonakiTransaction] with BytesSerializable with JsonSerializable {
 
   override def equals(other: Any): Boolean = other match {
     case tx: LagonakiTransaction => signature.signature.sameElements(tx.signature.signature)
@@ -31,19 +31,7 @@ case class LagonakiTransaction(sender: PublicKey25519Proposition,
 
   override def hashCode(): Int = Ints.fromByteArray(signature.signature)
 
-  override lazy val json =
-    Json.obj(
-      "type" -> TransactionType.LagonakiTransaction,
-      "fee" -> fee,
-      "timestamp" -> timestamp,
-      "nonce" -> txnonce,
-      "signature" -> Base58.encode(this.signature.signature),
-      "sender" -> sender.address,
-      "recipient" -> recipient.address,
-      "amount" -> amount
-    )
-
-  def genesisValidate(state: MinimalState[PublicKey25519Proposition]): Try[Unit] = Try {
+  def genesisValidate(state: MinimalState[PublicKey25519Proposition, LagonakiTransaction]): Try[Unit] = Try {
     require(state.version == 0)
     require(sender.publicKey.unsized sameElements LagonakiTransaction.GodAccount.publicKey.unsized)
     require(timestamp == 0)
@@ -52,12 +40,12 @@ case class LagonakiTransaction(sender: PublicKey25519Proposition,
     require(amount > 0)
   }
 
-  override def validate(state: MinimalState[PublicKey25519Proposition]): Try[Unit] = {
+  override def validate(state: MinimalState[PublicKey25519Proposition, LagonakiTransaction]): Try[Unit] = {
     if (state.version == 0) genesisValidate(state)
     else {
       state.closedBox(sender.id) match {
         case Some(box: PublicKey25519NoncedBox) =>
-          lazy val feeValid = toTry(fee > 0, "Fee isnt' positive")
+          lazy val feeValid = toTry(fee > 0, "Fee is not positive")
           lazy val balanceValid = toTry(box.value >= amount + fee, s"${sender.address} balance is too low")
           lazy val signatureValid = toTry(sender.verify(messageToSign, Sized.wrap(signature.signature)), "wrong signature")
           lazy val nonceValid = toTry(txnonce == box.nonce + 1, "tx nonce isnt' valid")
@@ -71,7 +59,8 @@ case class LagonakiTransaction(sender: PublicKey25519Proposition,
   def genesisChanges(): StateChanges[PublicKey25519Proposition] =
     StateChanges(Set(), Set(PublicKey25519NoncedBox(recipient, amount)), 0)
 
-  override def changes(state: MinimalState[PublicKey25519Proposition]): Try[StateChanges[PublicKey25519Proposition]] = {
+  override def changes(state: MinimalState[PublicKey25519Proposition, LagonakiTransaction])
+  : Try[StateChanges[PublicKey25519Proposition]] = {
     if (state.version == 0) Success(genesisChanges())
     else {
       state.closedBox(sender.id) match {
@@ -101,8 +90,19 @@ case class LagonakiTransaction(sender: PublicKey25519Proposition,
     LagonakiTransaction.bytesToSign(timestamp, sender.publicKey.unsized,
       recipient.publicKey.unsized, txnonce, amount, fee)
 
-
   override lazy val bytes = messageToSign ++ signature.signature
+
+  override lazy val json =
+    Map(
+      "type" -> TransactionType.LagonakiTransaction.id.asJson,
+      "fee" -> fee.asJson,
+      "timestamp" -> timestamp.asJson,
+      "nonce" -> txnonce.asJson,
+      "signature" -> Base58.encode(this.signature.signature).asJson,
+      "sender" -> sender.address.asJson,
+      "recipient" -> recipient.address.asJson,
+      "amount" -> amount.asJson
+    ).asJson
 }
 
 object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
@@ -118,17 +118,6 @@ object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
 
   val GodAccount = PublicKey25519Proposition(Sized.wrap(Array.fill(SenderLength)(0: Byte)))
 
-  /*
-  object ValidationResult extends Enumeration {
-    type ValidationResult = Value
-
-    val ValidateOke = Value(1)
-    val InvalidAddress = Value(2)
-    val NegativeAmount = Value(3)
-    val NegativeFee = Value(4)
-    val NoBalance = Value(5)
-  } */
-
   object TransactionType extends Enumeration {
     val LagonakiTransaction = Value(1)
   }
@@ -141,7 +130,7 @@ object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
 
 
   def generateSignature(sender: PrivateKey25519Holder, recipient: PublicKeyProposition,
-                        txNonce:Int, amount: Long, fee: Long, timestamp: Long): Signature25519 = {
+                        txNonce: Int, amount: Long, fee: Long, timestamp: Long): Signature25519 = {
     sender.sign(bytesToSign(timestamp, sender.publicCommitment.publicKey.unsized,
       recipient.publicKey.unsized, txNonce, amount, fee))
   }
@@ -193,7 +182,7 @@ object LagonakiTransaction extends BytesParseable[LagonakiTransaction] {
   }
 
   def bytesToSign(timestamp: Long, senderPubKey: Array[Byte], recipientPubKey: Array[Byte],
-                  txNonce: Int, amount: Long, fee: Long):Array[Byte] = {
+                  txNonce: Int, amount: Long, fee: Long): Array[Byte] = {
     Bytes.concat(
       Array(TransactionType.LagonakiTransaction.id.toByte),
       Longs.toByteArray(timestamp),

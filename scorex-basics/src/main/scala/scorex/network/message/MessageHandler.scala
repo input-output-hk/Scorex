@@ -6,6 +6,8 @@ import scorex.crypto.hash.FastCryptographicHash._
 import scorex.network.ConnectedPeer
 
 import scala.util.Try
+import scala.language.existentials
+
 
 case class MessageHandler(specs: Seq[MessageSpec[_]]) {
 

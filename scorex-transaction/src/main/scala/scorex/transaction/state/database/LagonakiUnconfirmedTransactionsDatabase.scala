@@ -1,13 +1,13 @@
 package scorex.transaction.state.database
 
 import com.google.common.primitives.Longs
-import scorex.transaction.LagonakiTransaction
+import scorex.transaction.{UnconfirmedTransactionsDatabase, LagonakiTransaction}
 import scorex.utils.ScorexLogging
 
 import scala.collection.concurrent.TrieMap
 
 
-object UnconfirmedTransactionsDatabaseImpl extends UnconfirmedTransactionsDatabase[LagonakiTransaction] with ScorexLogging {
+trait LagonakiUnconfirmedTransactionsDatabase extends UnconfirmedTransactionsDatabase[LagonakiTransaction] with ScorexLogging {
 
   //TODO move to config
   val SizeLimit = 1000

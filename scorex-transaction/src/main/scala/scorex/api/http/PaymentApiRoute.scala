@@ -5,12 +5,16 @@ import javax.ws.rs.Path
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
-import play.api.libs.json.{JsError, JsSuccess, Json}
 import scorex.app.Application
-import scorex.transaction.SimpleTransactionModule
+import scorex.transaction.{Wallet25519Only, SimpleTransactionModule}
 import scorex.transaction.state.wallet.Payment
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
+
+import io.circe.syntax._
+import io.circe.generic.auto._
+import io.circe.parser.decode
+
 
 @Path("/payment")
 @Api(value = "/payment", description = "Payment operations.", position = 1)
@@ -18,8 +22,8 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
   extends ApiRoute with CommonTransactionApiFunctions {
 
   // TODO asInstanceOf
-  implicit lazy val transactionModule: SimpleTransactionModule = application.transactionModule.asInstanceOf[SimpleTransactionModule]
-  lazy val wallet = application.transactionModule.wallet
+  implicit lazy val transactionModule: SimpleTransactionModule[_, _] = application.transactionModule.asInstanceOf[SimpleTransactionModule[_, _]]
+  lazy val wallet = application.transactionModule.wallet.asInstanceOf[Wallet25519Only] //todo: aIO
 
   override lazy val route = payment
 
@@ -46,26 +50,25 @@ case class PaymentApiRoute(override val application: Application)(implicit val c
       withAuth {
         postJsonRoute {
           walletNotExists(wallet).getOrElse {
-            Try(Json.parse(body)).map { js =>
-              js.validate[Payment] match {
-                case err: JsError =>
-                  WrongTransactionJson(err).json
-                case JsSuccess(payment: Payment, _) =>
+            decode[Payment](body).toOption match {
+                case Some(payment) =>
                   val txOpt = transactionModule.createPayment(payment, wallet)
                   txOpt match {
                     case Some(tx) =>
-                      tx.validate(transactionModule.blockStorage.state) match {
+                      tx.validate(transactionModule) match {
                         case Success(_) =>
                           tx.json
 
                         case Failure(e) =>
-                          Json.obj("error" -> 0, "message" -> e.getMessage)
+                          Map("error" -> 0.asJson, "message" -> e.getMessage.asJson).asJson
                       }
                     case None =>
-                      InvalidSender.json
+                      ApiError.invalidSender
                   }
+
+                case _ =>
+                  ApiError.wrongJson
               }
-            }.getOrElse(WrongJson.json)
           }
         }
       }

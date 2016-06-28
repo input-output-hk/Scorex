@@ -18,6 +18,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
+import scala.language.existentials
+
 /**
   * Control all network interaction
   * must be singleton

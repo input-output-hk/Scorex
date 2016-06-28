@@ -24,7 +24,7 @@ lazy val transaction = subModule("transaction")
 
 lazy val consensus = subModule("consensus")
   .aggregate(basics)
-  .dependsOn(basics)
+  .dependsOn(basics, transaction)
   .settings(commonSettings: _*)
   .settings(
     testOptions in Test := Seq(Tests.Filter(_.matches(".*TestSuite$")))
@@ -51,7 +51,7 @@ libraryDependencies ++=
     Dependencies.testKit ++
     Dependencies.logging
 
-scalacOptions ++= Seq("-feature", "-deprecation")
+scalacOptions ++= Seq("-feature", "-deprecation", "-verbose", "-Ylog:icode", "-Ydebug", "-Ytyper-debug")
 
 javaOptions ++= Seq(
   "-server"

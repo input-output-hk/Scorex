@@ -1,8 +1,6 @@
 package scorex.network
 
 import akka.actor.{Actor, ActorRef}
-import scorex.consensus.History
-import History._
 import scorex.utils.ScorexLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -14,7 +12,7 @@ class ScoreObserver(historySynchronizer: ActorRef) extends Actor with ScorexLogg
 
   import ScoreObserver._
 
-  private case class Candidate(peer: ConnectedPeer, score: BlockchainScore, seen: Long)
+  private case class Candidate(peer: ConnectedPeer, score: BigInt, seen: Long)
 
   private var candidates = Seq[Candidate]()
 
@@ -69,10 +67,10 @@ class ScoreObserver(historySynchronizer: ActorRef) extends Actor with ScorexLogg
 
 object ScoreObserver {
 
-  case class UpdateScore(scoreToAdd: Option[(ConnectedPeer, BlockchainScore)])
+  case class UpdateScore(scoreToAdd: Option[(ConnectedPeer, BigInt)])
 
   case object GetScore
 
-  case class ConsideredValue(value: Option[BlockchainScore], witnesses: Seq[ConnectedPeer])
+  case class ConsideredValue(value: Option[BigInt], witnesses: Seq[ConnectedPeer])
 
 }

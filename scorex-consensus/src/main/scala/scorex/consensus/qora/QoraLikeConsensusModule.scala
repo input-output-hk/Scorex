@@ -1,13 +1,16 @@
 package scorex.consensus.qora
 
 import com.google.common.primitives.{Bytes, Longs}
-import scorex.transaction.account.{BalanceSheet, Account, PrivateKeyAccount}
-import scorex.block.{Block, BlockField}
-import scorex.consensus.{BlockChain, History, ConsensusModule, LagonakiConsensusModule}
-import scorex.crypto.EllipticCurveImpl
+import scorex.transaction.account.BalanceSheet
+import scorex.block.{Block, TransactionalData}
+import scorex.consensus.blockchain.StoredBlockchain
+import scorex.consensus.nxt.NxtLikeConsensusBlockData
+import scorex.consensus.{BlockChain, ConsensusModule, History, LagonakiConsensusModule}
 import scorex.crypto.hash.FastCryptographicHash._
 import scorex.transaction._
-import scorex.transaction.state.AccountMinimalState
+import scorex.transaction.box.PublicKey25519Proposition
+import scorex.transaction.state.PrivateKey25519Holder
+import scorex.transaction.state.PrivateKey25519Holder.PrivateKey25519
 import scorex.utils.NTP
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -16,7 +19,9 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 
-class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensusModule[QoraLikeConsensusBlockData, TX] {
+class QoraLikeConsensusModule[TX <: Transaction[PublicKey25519Proposition, TX], TData <: TransactionalData[TX]]
+  extends LagonakiConsensusModule[QoraLikeConsensusBlockData, QoraBlock[TX, TData]]
+    with StoredBlockchain[PublicKey25519Proposition, TX, QoraLikeConsensusBlockData, QoraBlock[TX, TData]]{
 
   import QoraLikeConsensusModule.GeneratorSignatureLength
 
@@ -29,24 +34,23 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
   private val MinBlockTime = 1.minute.toSeconds
   private val MaxBlockTime = 5.minute.toSeconds
 
-  implicit val consensusModule: ConsensusModule[QoraLikeConsensusBlockData, Account, TX] = this
 
-  def calculateSignature(prevBlock: Block[TX], history: History[TX], account: PrivateKeyAccount): Array[Byte] = {
-    val gb = getNextBlockGeneratingBalance(prevBlock, history)
-    val ref = consensusBlockData(prevBlock).generatorSignature
+  def calculateSignature(prevBlock: QoraBlock[TX, TData], account: PrivateKey25519Holder): Array[Byte] = {
+    val gb = getNextBlockGeneratingBalance(prevBlock)
+    val ref = prevBlock.generatorSignature
     calculateSignature(ref, gb, account)
   }
 
   def calculateSignature(reference: Array[Byte],
                          generatingBalance: Long,
-                         account: PrivateKeyAccount): Array[Byte] = {
+                         account: PrivateKey25519Holder): Array[Byte] = {
     val generatorSignature = reference.take(GeneratorSignatureLength)
 
     val genBalanceBytes = Longs.toByteArray(generatingBalance)
       .ensuring(_.size == GeneratingBalanceLength)
 
-    val si = Bytes.concat(generatorSignature, genBalanceBytes, account.publicKey)
-    EllipticCurveImpl.sign(account, si)
+    val si = Bytes.concat(generatorSignature, genBalanceBytes, account.publicCommitment.bytes)
+    account.sign(si).proofBytes
   }
 
   def getBaseTarget(generatingBalance: Long): BigInt = BigInt(minMaxBalance(generatingBalance)) * getBlockTime(generatingBalance)
@@ -61,17 +65,17 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
     else if (generatingBalance > MaxBalance) MaxBalance
     else generatingBalance
 
-  private def blockGeneratingBalance(block: Block[TX]) = consensusBlockData(block).generatingBalance
+  private def blockGeneratingBalance(block: QoraBlock[TX, TData]) = block.generatingBalance
 
-  def getNextBlockGeneratingBalance(block: Block[TX], history: History[TX]): Long = {
-    if (history.heightOf(block).get % ReTarget == 0) {
+  def getNextBlockGeneratingBalance(block: QoraBlock[TX, TData]): Long = {
+    if (heightOf(block).get % ReTarget == 0) {
       //GET FIRST BLOCK OF TARGET
       val firstBlock = (1 to ReTarget - 1).foldLeft(block) { case (bl, _) =>
-        history.parent(bl).get
+        parent(bl).get
       }
 
       //CALCULATE THE GENERATING TIME FOR LAST 10 BLOCKS
-      val generatingTime = block.timestampField.value - firstBlock.timestampField.value
+      val generatingTime = block.timestamp - firstBlock.timestamp
 
       //CALCULATE EXPECTED FORGING TIME
       val expectedGeneratingTime = getBlockTime(blockGeneratingBalance(block)) * ReTarget * 1000
@@ -85,36 +89,27 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
     } else blockGeneratingBalance(block)
   }
 
-  def getNextBlockGeneratingBalance(history: History[TX]): Long = {
-    val lastBlock = history.lastBlock
-    getNextBlockGeneratingBalance(lastBlock, history)
+  def getNextBlockGeneratingBalance(): Long = {
+    getNextBlockGeneratingBalance(lastBlock)
   }
 
-  override def producers(block: Block[TX]): Seq[Account] = Seq(block.signerDataField.value.generator)
-
-  override def generateNextBlock[TT](account: PrivateKeyAccount)
-                                    (implicit transactionModule: TransactionModule[TT, TX]): Future[Option[Block[TX]]] = {
+  override def generateNextBlock(account: PrivateKey25519Holder)
+                                    (implicit transactionModule: TransactionModule[PublicKey25519Proposition, TX, TData]): Future[Option[QoraBlock[TX, TData]]] = {
     val version = 1: Byte
 
-    val history = transactionModule.blockStorage.history
-    val state = transactionModule.blockStorage.state
-
-    require(state.isInstanceOf[AccountMinimalState[TX] with BalanceSheet])
+    require(transactionModule.isInstanceOf[BalanceSheet[PublicKey25519Proposition]])
 
     //todo: asInstanceOf
-    val generationBalance = state.asInstanceOf[AccountMinimalState[TX] with BalanceSheet].generationBalance(account)
+    val generationBalance = transactionModule.asInstanceOf[BalanceSheet[PublicKey25519Proposition]].generationBalance(account.publicCommitment)
     require(generationBalance > 0, "Zero generating balance in generateNextBlock")
-    require(history.isInstanceOf[BlockChain[AccountTransaction]], "Only linear history is supported")
 
-    val lastBlock = history.lastBlock
-
-    val signature = calculateSignature(lastBlock, history, account)
+    val signature = calculateSignature(lastBlock, account)
     val h = hash(signature)
     val hashValue = BigInt(1, h)
 
     //CALCULATE ACCOUNT TARGET
     val targetBytes = Array.fill(32)(Byte.MaxValue)
-    val baseTarget = getBaseTarget(getNextBlockGeneratingBalance(lastBlock, history))
+    val baseTarget = getBaseTarget(getNextBlockGeneratingBalance(lastBlock))
     //MULTIPLY TARGET BY USER BALANCE
     val target = BigInt(1, targetBytes) / baseTarget * BigInt(generationBalance)
 
@@ -122,7 +117,7 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
     val guesses = hashValue / target + 1
 
     //CALCULATE TIMESTAMP
-    val timestampRaw = guesses * 1000 + lastBlock.timestampField.value
+    val timestampRaw = guesses * 1000 + lastBlock.timestamp
 
     //CHECK IF NOT HIGHER THAN MAX LONG VALUE
     val timestamp = if (timestampRaw > Long.MaxValue) Long.MaxValue else timestampRaw.longValue()
@@ -131,43 +126,41 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
 
       val consensusData = new QoraLikeConsensusBlockData {
         override val generatorSignature: Array[Byte] = signature
-        override val generatingBalance: Long = getNextBlockGeneratingBalance(lastBlock, history)
+        override val generatingBalance: Long = getNextBlockGeneratingBalance(lastBlock)
       }
       Future(Some(Block.buildAndSign(version,
         timestamp,
-        lastBlock.uniqueId,
+        id(lastBlock),
         consensusData,
         transactionModule.packUnconfirmed(),
         account)))
     } else Future(None)
   }
 
-  override def parseBytes(bytes: Array[Byte]): Try[BlockField[QoraLikeConsensusBlockData]] = Try {
-    QoraConsensusBlockField(new QoraLikeConsensusBlockData {
+  def parseBytes(bytes: Array[Byte]): Try[Unit] = Try {
+    /*new QoraLikeConsensusBlockData {
       override val generatingBalance: Long = Longs.fromByteArray(bytes.take(GeneratingBalanceLength))
       override val generatorSignature: Array[Byte] = bytes.takeRight(GeneratorSignatureLength)
-    })
+    }*/
   }
 
-  override def isValid[TT](block: Block[TX])(implicit transactionModule: TransactionModule[TT, TX]): Boolean = {
-    val history = transactionModule.blockStorage.history
-    val state = transactionModule.blockStorage.state
 
-    val data = consensusBlockData(block)
+  override def isValid(block: QoraBlock[TX, TData])(implicit transactionModule: TransactionModule[_, _, _]): Boolean = {
+    val data = block.consensusData
 
-    if (data.generatingBalance != getNextBlockGeneratingBalance(history.parent(block).get, history)) {
+    if (data.generatingBalance != getNextBlockGeneratingBalance(parent(block).get)) {
       //CHECK IF GENERATING BALANCE IS CORRECT
       false
     } else {
       //target base
       val targetBytes = Array.fill(32)(Byte.MaxValue)
       val baseTarget: BigInt = getBaseTarget(data.generatingBalance)
-      val gen = block.signerDataField.value.generator.address
-      val genBalance = BigInt(state.asInstanceOf[BalanceSheet].generationBalance(gen))
+      val gen = data.producer
+      val genBalance = BigInt(transactionModule.asInstanceOf[BalanceSheet[PublicKey25519Proposition]].generationBalance(gen))
       val target0 = BigInt(1, targetBytes) / baseTarget * genBalance
 
       //target bounds
-      val guesses = (block.timestampField.value - history.parent(block).get.timestampField.value) / 1000
+      val guesses = (block.timestamp - parent(block).get.timestamp) / 1000
       val lowerTarget = target0 * (guesses - 1)
       val target = target0 * guesses
 
@@ -178,21 +171,14 @@ class QoraLikeConsensusModule[TX <: AccountTransaction] extends LagonakiConsensu
     }
   }
 
-  override def genesisData: BlockField[QoraLikeConsensusBlockData] =
-    QoraConsensusBlockField(new QoraLikeConsensusBlockData {
-      override val generatingBalance: Long = 10000000
-      override val generatorSignature: Array[Byte] = Array.fill(64)(0: Byte)
-    })
+  override def genesisData: QoraLikeConsensusBlockData =
+    QoraLikeConsensusBlockData(
 
-  override def formBlockData(data: QoraLikeConsensusBlockData): BlockField[QoraLikeConsensusBlockData] =
-    QoraConsensusBlockField(data)
+      generatingBalance = 10000000L
+      generatorSignature = Array.fill(64)(0: Byte)
+  )
 
-  override def blockScore(block: Block[TX])(implicit transactionModule: TransactionModule[_, TX]): BigInt = BigInt(1)
-
-  override def consensusBlockData(block: Block[TX]): QoraLikeConsensusBlockData = block.consensusDataField.value match {
-    case b: QoraLikeConsensusBlockData => b
-    case m => throw new AssertionError(s"Only QoraLikeConsensusBlockData is available, $m given")
-  }
+  override def blockScore(block: QoraBlock[TX, TData])(implicit transactionModule: TransactionModule[PublicKey25519Proposition, _, _]): BigInt = BigInt(1)
 }
 
 object QoraLikeConsensusModule {

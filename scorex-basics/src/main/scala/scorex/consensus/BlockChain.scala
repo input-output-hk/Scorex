@@ -1,32 +1,32 @@
 package scorex.consensus
 
-import scorex.block.Block
-import scorex.block.Block.BlockId
+import scorex.block.{ConsensusData, Block}
 import scorex.transaction.box.Proposition
 import scorex.utils.ScorexLogging
 
-trait BlockChain extends History with ScorexLogging {
+import scala.util.Try
 
-  def blockAt(height: Int): Option[Block]
+trait BlockChain[P <: Proposition, CData <: ConsensusData, B <: Block[P, CData, _]] extends History[P, CData, B] with ScorexLogging {
+  this : ConsensusModule[P, CData, B] =>
 
-  def genesisBlock: Option[Block] = blockAt(1)
+  def blockAt(height: Int): Option[B]
 
-  override def parent(block: Block, back: Int = 1): Option[Block] = {
+  override def parent(block: B, back: Int = 1): Option[B] = {
     require(back > 0)
-    heightOf(block.parentId).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
+    heightOf(parentId(block)).flatMap(referenceHeight => blockAt(referenceHeight - back + 1))
   }
 
-  private[consensus] def discardBlock(): BlockChain
+  override def discardBlock(): Try[Unit]
 
-  override def lastBlocks(howMany: Int): Seq[Block] =
+  override def lastBlocks(howMany: Int): Seq[B] =
     (Math.max(1, height() - howMany + 1) to height()).flatMap(blockAt).reverse
 
   def lookForward(parentSignature: BlockId, howMany: Int): Seq[BlockId] =
     heightOf(parentSignature).map { h =>
-      (h + 1).to(Math.min(height(), h + howMany: Int)).flatMap(blockAt).map(_.id)
+      (h + 1).to(Math.min(height(), h + howMany: Int)).flatMap(blockAt).map(id)
     }.getOrElse(Seq())
 
-  def children(block: Block): Seq[Block]
+  def children(blockId: BlockId): Seq[B]
 
-  override lazy val genesis: Block = blockAt(1).get
+  override lazy val genesisBlock: B = blockAt(1).get
 }

@@ -5,14 +5,15 @@ import javax.ws.rs.Path
 
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
+import io.circe.Json
+import io.circe.generic.auto._
+import io.circe.syntax._
 import io.swagger.annotations._
-import play.api.libs.json._
+import scorex.api.http.ApiError._
 import scorex.app.Application
 import scorex.crypto.encode.Base58
-import scorex.transaction.{TransactionModule, LagonakiTransaction}
-import scorex.transaction.box.{PublicKey25519Proposition, PublicKeyProposition}
-import scorex.transaction.state.{PrivateKey25519Holder, LagonakiState}
-import scorex.wallet.Wallet
+import scorex.transaction.box.PublicKey25519Proposition
+import scorex.transaction.{SimpleTransactionModule, Wallet25519Only}
 import shapeless.Sized
 
 import scala.util.{Failure, Success, Try}
@@ -22,7 +23,8 @@ import scala.util.{Failure, Success, Try}
 case class AddressApiRoute(override val application: Application)(implicit val context: ActorRefFactory)
   extends ApiRoute with CommonTransactionApiFunctions {
 
-  private val wallet = application.transactionModule.wallet
+  private val transactionalModule = application.transactionModule.asInstanceOf[SimpleTransactionModule[_, _]] //todo: aIO
+  private val wallet: Wallet25519Only = transactionalModule.wallet
 
 
   override lazy val route =
@@ -41,12 +43,12 @@ case class AddressApiRoute(override val application: Application)(implicit val c
       withAuth {
         deleteJsonRoute {
           walletNotExists(wallet).getOrElse {
-            if (!PublicKeyProposition.isValidAddress(address)) {
-              InvalidAddress.json
+            if (!PublicKey25519Proposition.validPubKey(address).isSuccess) {
+              ApiError.invalidAddress
             } else {
               val deleted = wallet.privateKeyAccount(address).exists(account =>
                 wallet.deleteAccount(account))
-              Json.obj("deleted" -> deleted)
+              Map("deleted" -> deleted).asJson
             }
           }
         }
@@ -124,20 +126,23 @@ case class AddressApiRoute(override val application: Application)(implicit val c
 
 
   @Path("/generatingbalance/{address}")
-  @ApiOperation(value = "Generating balance", notes = "Account's generating balance(the same as balance atm)", httpMethod = "GET")
+  @ApiOperation(value = "Generating balance",
+    notes = "Account's generating balance(the same as balance atm)",
+    httpMethod = "GET")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(name = "address", value = "Address", required = true, dataType = "String", paramType = "path")
   ))
   def generatingBalance: Route = {
     path("generatingbalance" / Segment) { case address =>
       getJsonRoute {
-        if (!PublicKeyProposition.isValidAddress(address)) {
-          InvalidAddress.json
-        } else {
-          Json.obj(
-            "address" -> address,
-            "balance" -> state.generationBalance(address)
-          )
+        PublicKey25519Proposition.validPubKey(address) match {
+          case Success(pk) =>
+            Map(
+              "address" -> address.asJson,
+              "balance" -> transactionalModule.generationBalance(pk).asJson
+            ).asJson
+          case _ =>
+            ApiError.invalidAddress
         }
       }
     }
@@ -177,14 +182,11 @@ case class AddressApiRoute(override val application: Application)(implicit val c
     new ApiImplicitParam(name = "address", value = "Address", required = true, dataType = "String", paramType = "path")
   ))
   def seed: Route = {
-    path("seed" / Segment) { case address =>
+    path("seed" / Segment) { case address => //todo: address isn't needed
       getJsonRoute {
         //TODO CHECK IF WALLET EXISTS
         withPrivateKeyAccount(wallet, address) { account =>
-          wallet.seed(account.address) match {
-            case None => WalletSeedExportFailed.json
-            case Some(seed) => Json.obj("address" -> address, "seed" -> Base58.encode(seed))
-          }
+          Map("address" -> address, "seed" -> Base58.encode(wallet.seed)).asJson
         }
       }
     }
@@ -198,7 +200,8 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def validate: Route = {
     path("validate" / Segment) { case address =>
       getJsonRoute {
-        Json.obj("address" -> address, "valid" -> PublicKeyProposition.isValidAddress(address))
+        Map("address" -> address.asJson,
+          "valid" -> PublicKey25519Proposition.validPubKey(address).isSuccess.asJson).asJson
       }
     }
   }
@@ -208,7 +211,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def root: Route = {
     path("addresses") {
       getJsonRoute {
-        JsArray(wallet.privateKeyAccounts().map(a => JsString(a.publicCommitment.address)))
+        wallet.privateKeyAccounts().map(a => a.publicCommitment.address).asJson
       }
     }
   }
@@ -222,9 +225,7 @@ case class AddressApiRoute(override val application: Application)(implicit val c
   def seq: Route = {
     path("seq" / IntNumber / IntNumber) { case (start, end) =>
       getJsonRoute {
-        JsArray(
-          wallet.privateKeyAccounts().map(a => JsString(a.publicAddress)).slice(start, end)
-        )
+        wallet.privateKeyAccounts().map(_.publicAddress).slice(start, end).asJson
       }
     }
   }
@@ -236,41 +237,42 @@ case class AddressApiRoute(override val application: Application)(implicit val c
       withAuth {
         postJsonRoute {
           walletNotExists(wallet).getOrElse {
-            Json.obj("address" -> wallet.generateNewAccount().publicCommitment.address)
+            Map("address" -> wallet.generateNewAccount().publicCommitment.address).asJson
           }
         }
       }
     }
   }
 
-  private def balanceJson(address: String, confirmations: Int) =
-    if (!PublicKeyProposition.isValidAddress(address)) {
-      InvalidAddress.json
-    } else {
-      Json.obj(
-        "address" -> address,
-        "confirmations" -> confirmations,
-        "balance" -> state.balanceWithConfirmations(address, confirmations)
-      )
+  private def balanceJson(address: String, confirmations: Int): Json = {
+    PublicKey25519Proposition.validPubKey(address) match {
+      case Success(pubkey) =>
+        Map(
+          "address" -> address.asJson,
+          "confirmations" -> confirmations.asJson,
+          "balance" -> transactionalModule.balanceWithConfirmations(pubkey, confirmations).asJson
+        ).asJson
+      case _ => ApiError.invalidAddress
     }
+  }
 
   private def signPath(address: String, encode: Boolean) = {
     entity(as[String]) { message =>
       withAuth {
         postJsonRoute {
           walletNotExists(wallet).getOrElse {
-            if (!PublicKeyProposition.isValidAddress(address)) {
-              InvalidAddress.json
+            if (!PublicKey25519Proposition.validPubKey(address).isSuccess) {
+              ApiError.invalidAddress
             } else {
               wallet.privateKeyAccount(address) match {
-                case None => WalletAddressNotExists.json
+                case None => SimpleTransactionalModuleErrors.walletAddressNotExists
                 case Some(sh) =>
                   Try(sh.sign(message.getBytes(StandardCharsets.UTF_8))) match {
                     case Success(signature) =>
                       val msg = if (encode) Base58.encode(message.getBytes) else message
-                      Json.obj("message" -> msg,
+                      Map("message" -> msg,
                         "publickey" -> Base58.encode(sh.publicCommitment.id),
-                        "signature" -> Base58.encode(signature.bytes))
+                        "signature" -> Base58.encode(signature.bytes)).asJson
                     case Failure(t) => json(t)
                   }
               }
@@ -286,26 +288,25 @@ case class AddressApiRoute(override val application: Application)(implicit val c
     entity(as[String]) { jsText =>
       withAuth {
         postJsonRoute {
-          val parsed = Try(Json.parse(jsText)).getOrElse(WrongJson.json)
-          parsed.validate[SignedMessage] match {
-            case err: JsError =>
-              WrongJson.json
-            case JsSuccess(m: SignedMessage, _) =>
-              if (!PublicKeyProposition.isValidAddress(address)) {
-                InvalidAddress.json
+          io.circe.parser.decode[SignedMessage](jsText).toOption match {
+            case Some(m) =>
+              if (!PublicKey25519Proposition.validPubKey(address).isSuccess) {
+                invalidAddress
               } else {
                 //DECODE SIGNATURE
                 val msg: Try[Array[Byte]] = if (decode) Base58.decode(m.message) else Success(m.message.getBytes)
                 (msg, Base58.decode(m.signature), Base58.decode(m.publickey)) match {
-                  case (Failure(_), _, _) => InvalidMessage.json
-                  case (_, Failure(_), _) => InvalidSignature.json
-                  case (_, _, Failure(_)) => InvalidPublicKey.json
+                  case (Failure(_), _, _) => invalidAddress
+                  case (_, Failure(_), _) => invalidSignature
+                  case (_, _, Failure(_)) => invalidPublicKey
                   case (Success(msgBytes), Success(signatureBytes), Success(pubKeyBytes)) =>
                     val account = PublicKey25519Proposition(Sized.wrap(pubKeyBytes))
                     val isValid = account.address == address && account.verify(msgBytes, Sized.wrap(signatureBytes))
-                    Json.obj("valid" -> isValid)
+                    ("valid" -> isValid).asJson
                 }
               }
+            case _ =>
+              ApiError.wrongJson
           }
         }
       }

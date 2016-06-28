@@ -1,23 +1,29 @@
-package scorex.api.http
+package scorex.consensus.api.http
 
 import javax.ws.rs.Path
 
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
+import io.circe.generic.auto._
+import io.circe.syntax._
 import io.swagger.annotations._
-import play.api.libs.json.{JsArray, Json}
+import scorex.api.http.{ApiError, ApiRoute}
 import scorex.app.Application
+import scorex.block.{Block, ConsensusData}
 import scorex.consensus.BlockChain
-import scorex.transaction.Transaction
-
+import scorex.crypto.encode.Base58
+import scorex.transaction.box.PublicKey25519Proposition
 
 @Path("/blocks")
 @Api(value = "/blocks", description = "Info about blockchain & individual blocks within it")
-case class BlocksApiRoute[TX <: Transaction[_]](override val application: Application)(implicit val context: ActorRefFactory)
-  extends ApiRoute with CommonTransactionApiFunctions {
+case class BlocksApiRoute[CData <: ConsensusData, B <: Block[PublicKey25519Proposition, CData, _]](consensusModule: BlockChain[PublicKey25519Proposition, CData, B], application: Application)(implicit val context: ActorRefFactory)
+  extends ApiRoute {
 
-  private val wallet = application.transactionModule.wallet
-  private val history = application.history
+  private type P = PublicKey25519Proposition
+  private type BT = application.BType
+  private type CData = application.CData
+
+  //private val consensusModule = application.consensusModule.asInstanceOf[BlockChain[PublicKey25519Proposition, CData, BT]] //todo: aIO
 
   override lazy val route =
     pathPrefix("blocks") {
@@ -32,7 +38,9 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def address: Route = {
     path("address" / Segment) { case address =>
       getJsonRoute {
-        JsArray(history.generatedBy(new Account(address)).map(_.json))
+        PublicKey25519Proposition.validPubKey(address).map { pk =>
+          consensusModule.generatedBy(pk).map(_.json).asJson //todo: asIO
+        }.getOrElse(ApiError.invalidAddress)
       }
     }
   }
@@ -43,17 +51,13 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
     new ApiImplicitParam(name = "signature", value = "Base58-encoded signature", required = true, dataType = "String", paramType = "path")
   ))
   def child: Route = {
-    path("child" / Segment) { case encodedSignature =>
+    path("child" / Segment) { case encodedId =>
       getJsonRoute {
-        withBlock(history, encodedSignature) { block =>
-          history match {
-            case blockchain: BlockChain =>
-              blockchain.children(block).headOption.map(_.json).getOrElse(
-                Json.obj("status" -> "error", "details" -> "No child blocks"))
-            case _ =>
-              Json.obj("status" -> "error", "details" -> "Not available for other option than linear blockchain")
-          }
-        }
+        consensusModule
+          .children(Base58.decode(encodedId).get) //todo: get
+          .headOption
+          .map(_.json)
+          .getOrElse(Map("status" -> "error", "details" -> "No child blocks").asJson)
       }
     }
   }
@@ -65,11 +69,11 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
     new ApiImplicitParam(name = "blockNum", value = "Number of blocks to count delay", required = true, dataType = "String", paramType = "path")
   ))
   def delay: Route = {
-    path("delay" / Segment / IntNumber) { case (encodedSignature, count) =>
+    path("delay" / Segment / IntNumber) { case (encodedId: String, count) =>
       getJsonRoute {
-        withBlock(history, encodedSignature) { block =>
-          history.averageDelay(block, count).map(d => Json.obj("delay" -> d))
-            .getOrElse(Json.obj("status" -> "error", "details" -> "Internal error"))
+        withBlock(consensusModule, encodedId: String) { block =>
+          consensusModule.averageDelay(block, count).map(d => ("delay" -> d).asJson)
+            .getOrElse(Map("status" -> "error", "details" -> "Internal error").asJson)
         }
       }
     }
@@ -81,10 +85,10 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
     new ApiImplicitParam(name = "signature", value = "Base58-encoded signature", required = true, dataType = "String", paramType = "path")
   ))
   def heightEncoded: Route = {
-    path("height" / Segment) { case encodedSignature =>
+    path("height" / Segment) { case encodedId =>
       getJsonRoute {
-        withBlock(history, encodedSignature) { block =>
-          Json.obj("height" -> history.heightOf(block))
+        withBlock(consensusModule, encodedId) { block =>
+          ("height" -> consensusModule.heightOf(block)).asJson
         }
       }
     }
@@ -95,7 +99,7 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def height: Route = {
     path("height") {
       getJsonRoute {
-        Json.obj("height" -> history.height())
+        ("height" -> consensusModule.height()).asJson
       }
     }
   }
@@ -108,15 +112,10 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def at: Route = {
     path("at" / IntNumber) { case height =>
       getJsonRoute {
-        history match {
-          case blockchain: BlockChain =>
-            blockchain
-              .blockAt(height)
-              .map(_.json)
-              .getOrElse(Json.obj("status" -> "error", "details" -> "No block for this height"))
-          case _ =>
-            Json.obj("status" -> "error", "details" -> "Not available for other option than linear blockchain")
-        }
+        consensusModule
+          .blockAt(height)
+          .map(_.json)
+          .getOrElse(Map("status" -> "error", "details" -> "No block for this height").asJson)
       }
     }
   }
@@ -130,15 +129,12 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def seq: Route = {
     path("seq" / IntNumber / IntNumber) { case (start, end) =>
       getJsonRoute {
-        history match {
-          case blockchain: BlockChain =>
-            JsArray(
-              (start to end).map { height =>
-                blockchain.blockAt(height).map(_.json).getOrElse(Json.obj("error" -> s"No block at height $height"))
-              })
-          case _ =>
-            Json.obj("status" -> "error", "details" -> "Not available for other option than linear blockchain")
-        }
+        (start to end).map { height =>
+          consensusModule
+            .blockAt(height)
+            .map(_.json)
+            .getOrElse(("error" -> s"No block at height $height").asJson)
+        }.asJson
       }
     }
   }
@@ -149,7 +145,7 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def last: Route = {
     path("last") {
       getJsonRoute {
-        history.lastBlock.json
+        consensusModule.lastBlock.json
       }
     }
   }
@@ -159,7 +155,7 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
   def first: Route = {
     path("first") {
       getJsonRoute {
-        history.genesis.json
+        consensusModule.genesisBlock.json
       }
     }
   }
@@ -170,9 +166,9 @@ case class BlocksApiRoute[TX <: Transaction[_]](override val application: Applic
     new ApiImplicitParam(name = "signature", value = "Base58-encoded signature", required = true, dataType = "String", paramType = "path")
   ))
   def signature: Route = {
-    path("signature" / Segment) { case encodedSignature =>
+    path("signature" / Segment) { case encodedId =>
       getJsonRoute {
-        withBlock(history, encodedSignature)(_.json)
+        withBlock(consensusModule, encodedId)(_.json)
       }
     }
   }

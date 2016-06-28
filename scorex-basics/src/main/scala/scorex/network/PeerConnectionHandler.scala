@@ -8,9 +8,10 @@ import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
 import com.google.common.primitives.Ints
 import scorex.app.Application
+import scorex.consensus.ConsensusModule
 import scorex.network.peer.PeerManager
 import scorex.network.peer.PeerManager.{AddToBlacklist, Handshaked}
-import scorex.transaction.Transaction
+import scorex.transaction.TransactionModule
 import scorex.utils.ScorexLogging
 
 import scala.util.{Failure, Success}

@@ -6,8 +6,9 @@ import com.google.common.primitives.{Bytes, Ints}
 import org.h2.mvstore.{MVMap, MVStore}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.SecureCryptographicHash
+import scorex.settings.Settings
 import scorex.transaction.TransactionModule
-import scorex.transaction.box.AddressableProposition
+import scorex.transaction.box.{Proposition, AddressableProposition}
 import scorex.transaction.state.SecretHolderGenerator
 import scorex.utils.{ScorexLogging, randomBytes}
 
@@ -15,11 +16,15 @@ import scala.collection.JavaConversions._
 import scala.collection.concurrent.TrieMap
 
 //todo: add accs txs?
-class Wallet[TM <: TransactionModule, P <: TM#P with AddressableProposition](walletFileOpt: Option[File],
-                                                                             password: String,
-                                                                             seedOpt: Option[Array[Byte]],
-                                                                             generator: SecretHolderGenerator[TM#SH])
+class Wallet[P <: Proposition,
+AP <: P with AddressableProposition,
+TM <: TransactionModule[P, _, _]](settings: Settings,
+                                       generator: SecretHolderGenerator[TM#SH])
   extends ScorexLogging {
+
+  val walletFileOpt: Option[File] = settings.walletDirOpt.map(walletDir => new java.io.File(walletDir, "wallet.s.dat"))
+  val password: String = settings.walletPassword
+  val seedOpt: Option[Array[Byte]] = settings.walletSeed
 
   type SH = TM#SH
 

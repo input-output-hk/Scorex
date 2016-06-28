@@ -1,8 +1,9 @@
 package scorex.serialization
 
-import play.api.libs.json.JsObject
+import io.circe.Json
+
 
 trait JsonSerializable {
 
-  def json: JsObject
+  def json: Json
 }

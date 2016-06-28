@@ -5,22 +5,21 @@ import javax.ws.rs.Path
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
-import play.api.libs.json.Json
-import scorex.api.http.{ApiRoute, CommonApiFunctions, InvalidNotNumber}
+import scorex.api.http.{ApiError, ApiRoute, CommonApiFunctions}
 import scorex.app.Application
 import scorex.consensus.qora.QoraLikeConsensusModule
-import scorex.transaction.AccountTransaction
 
 import scala.util.Try
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 @Path("/consensus")
 @Api(value = "/consensus", description = "Consensus-related calls")
-case class QoraConsensusApiRoute[TX <: AccountTransaction](override val application: Application[TX])
+case class QoraConsensusApiRoute(override val application: Application)
                                 (implicit val context: ActorRefFactory)
   extends ApiRoute with CommonApiFunctions {
 
-  private val consensusModule = application.consensusModule.asInstanceOf[QoraLikeConsensusModule[TX]]
-  private val blockStorage = application.blockStorage
+  private val consensusModule = application.consensusModule.asInstanceOf[QoraLikeConsensusModule[_, _]]
 
   override val route: Route =
     pathPrefix("consensus") {
@@ -35,10 +34,8 @@ case class QoraConsensusApiRoute[TX <: AccountTransaction](override val applicat
   def generating: Route = {
     path("generatingbalance" / Segment) { case encodedSignature =>
       getJsonRoute {
-        withBlock(blockStorage.history, encodedSignature) { block =>
-          Json.obj(
-            "generatingbalance" -> consensusModule.consensusBlockData(block).generatingBalance
-          )
+        withBlock(consensusModule, encodedSignature) { block =>
+          ("generatingbalance" -> block.generatingBalance).asJson
         }
       }
     }
@@ -49,8 +46,8 @@ case class QoraConsensusApiRoute[TX <: AccountTransaction](override val applicat
   def nextGenerating: Route = {
     path("generatingbalance") {
       getJsonRoute {
-        val generatingBalance = consensusModule.getNextBlockGeneratingBalance(blockStorage.history)
-        Json.obj("generatingbalance" -> generatingBalance)
+        val generatingBalance = consensusModule.getNextBlockGeneratingBalance()
+        ("generatingbalance" -> generatingBalance).asJson
       }
     }
   }
@@ -63,11 +60,10 @@ case class QoraConsensusApiRoute[TX <: AccountTransaction](override val applicat
   def timeForBalance: Route = {
     path("time" / Segment) { case generatingBalance =>
       getJsonRoute {
-        val jsRes = Try {
+        Try {
           val timePerBlock = consensusModule.getBlockTime(generatingBalance.toLong)
-          Json.obj("time" -> timePerBlock)
-        }.getOrElse(InvalidNotNumber.json)
-        jsRes
+          ("time" -> timePerBlock).asJson
+        }.getOrElse(ApiError.invalidNotNumber)
       }
     }
   }
@@ -77,10 +73,10 @@ case class QoraConsensusApiRoute[TX <: AccountTransaction](override val applicat
   def time: Route = {
     path("time") {
       getJsonRoute {
-        val block = blockStorage.history.lastBlock
-        val genBalance = consensusModule.consensusBlockData(block).generatingBalance
+        val block = consensusModule.lastBlock
+        val genBalance = block.generatingBalance
         val timePerBlock = consensusModule.getBlockTime(genBalance)
-        Json.obj("time" -> timePerBlock)
+        ("time" -> timePerBlock).asJson
       }
     }
   }
@@ -90,7 +86,7 @@ case class QoraConsensusApiRoute[TX <: AccountTransaction](override val applicat
   def algo: Route = {
     path("algo") {
       getJsonRoute {
-        Json.obj("consensusAlgo" -> "qora")
+        ("consensusAlgo" -> "qora").asJson
       }
     }
   }

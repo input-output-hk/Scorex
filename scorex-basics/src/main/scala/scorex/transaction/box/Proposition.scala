@@ -7,6 +7,8 @@ import scorex.crypto.signatures.Curve25519
 import scorex.serialization.BytesSerializable
 import shapeless.{Nat, Sized, Succ}
 
+import scala.util.{Failure, Success, Try}
+
 sealed trait Proposition extends BytesSerializable
 
 sealed trait AddressableProposition extends Proposition {
@@ -17,59 +19,58 @@ sealed trait AddressableProposition extends Proposition {
 trait EmptyProposition extends Proposition
 
 trait PublicKeyProposition extends AddressableProposition {
-
-  import PublicKeyProposition._
-
   type PublicKeySize <: Nat
   val publicKey: Sized[Array[Byte], PublicKeySize]
 
   override val bytes = publicKey.unsized
 
-  override lazy val address: String = Base58.encode(id ++ calcCheckSum(id))
 
   override def toString: String = address
 
-  override lazy val id = {
-    val publicKeyHash = hash(publicKey).unsized.take(IdLength)
-    AddressVersion +: publicKeyHash
-  }
+  override lazy val id: Array[Byte] = publicKey.unsized
 
   def verify(message: Array[Byte], signature: Sized[Array[Byte], SizedConstants.Signature25519]): Boolean =
     Curve25519.verify(signature, message, publicKey)
 }
 
-object PublicKeyProposition {
+
+trait PublicKey25519Proposition extends PublicKeyProposition {
+
+  import PublicKey25519Proposition._
+
+  override type PublicKeySize = SizedConstants.Nat32
+
+  override lazy val address: String = Base58.encode((AddressVersion +: id) ++ calcCheckSum(id))
+}
+
+object PublicKey25519Proposition {
   val AddressVersion: Byte = 1
   val ChecksumLength = 4
-  val IdLength = 20
-  val AddressLength = 1 + IdLength + ChecksumLength
+  val PubKeyLength = 32
+  val AddressLength = 1 + PubKeyLength + ChecksumLength
+
+  def apply(pubKey: Sized[Array[Byte], SizedConstants.PubKey25519]): PublicKey25519Proposition =
+    new PublicKey25519Proposition {
+      override val publicKey = pubKey
+      override val bytes: Array[Byte] = publicKey
+    }
 
   //todo: unsized
   def calcCheckSum(bytes: Array[Byte]): Array[Byte] = hash(bytes).unsized.take(ChecksumLength)
 
-  def isValidAddress(address: String): Boolean =
-    Base58.decode(address).map { addressBytes =>
+  def validPubKey(address: String): Try[PublicKey25519Proposition] =
+    Base58.decode(address).flatMap { addressBytes =>
       if (addressBytes.length != AddressLength)
-        false
+        Failure(new Exception("Wrong address length"))
       else {
         val checkSum = addressBytes.takeRight(ChecksumLength)
 
         val checkSumGenerated = calcCheckSum(addressBytes.dropRight(ChecksumLength))
 
-        checkSum.sameElements(checkSumGenerated)
+        if (checkSum.sameElements(checkSumGenerated))
+          Success(PublicKey25519Proposition(Sized.wrap(addressBytes.dropRight(ChecksumLength).tail)))
+        else Failure(new Exception("Wrong checksum"))
       }
-    }.getOrElse(false)
-}
-
-trait PublicKey25519Proposition extends PublicKeyProposition {
-  override type PublicKeySize = SizedConstants.Nat32
-}
-
-object PublicKey25519Proposition {
-  def apply(pubKey: Sized[Array[Byte], SizedConstants.PubKey25519]): PublicKey25519Proposition =
-    new PublicKey25519Proposition {
-      override val publicKey = pubKey
-      override val bytes: Array[Byte] = publicKey
     }
 }
 

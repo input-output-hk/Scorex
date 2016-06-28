@@ -3,8 +3,7 @@ package scorex.network
 import scorex.app.Application
 import scorex.network.NetworkController.DataFromPeer
 import scorex.network.TransactionalMessagesRepo.TransactionMessageSpec
-import scorex.transaction.state.database.UnconfirmedTransactionsDatabaseImpl
-import scorex.transaction.{Transaction, LagonakiTransaction}
+import scorex.transaction.{SimpleTransactionModule, LagonakiTransaction}
 import scorex.utils.ScorexLogging
 
 /**
@@ -16,13 +15,13 @@ class UnconfirmedPoolSynchronizer(application: Application) extends ViewSynchron
 
   override val networkControllerRef = application.networkController
 
-  val transactionModule = application.transactionModule
+  val transactionModule = application.transactionModule.asInstanceOf[SimpleTransactionModule[_, _]] //todo: aIO
 
   override def receive: Receive = {
-    case DataFromPeer(msgId, tx: Transaction[transactionModule.P], remote) if msgId == TransactionMessageSpec.messageCode =>
+    case DataFromPeer(msgId, tx: LagonakiTransaction, remote) if msgId == TransactionMessageSpec.messageCode =>
       log.debug(s"Got tx: $tx")
-      (tx, transactionModule.blockStorage.state.isValid(tx)) match {
-        case (ltx: LagonakiTransaction, true) => UnconfirmedTransactionsDatabaseImpl.putIfNew(ltx)
+      (tx, tx.validate(transactionModule).isSuccess) match {
+        case (ltx: LagonakiTransaction, true) => transactionModule.putIfNew(ltx)
         case (atx, false) => log.error(s"Transaction $atx is not valid")
         case m => log.error(s"Got unexpected transaction: $m")
       }

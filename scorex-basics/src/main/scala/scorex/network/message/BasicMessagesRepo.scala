@@ -2,18 +2,24 @@ package scorex.network.message
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util
+
 import com.google.common.primitives.{Bytes, Ints}
-import scorex.block.Block
-import scorex.consensus.{History, ConsensusModule}
+import scorex.block.{Block, ConsensusData, TransactionalData}
+import scorex.consensus.ConsensusModule
 import scorex.crypto.signatures.SigningFunctions
 import scorex.network.message.Message._
-import scorex.transaction.proof.Signature25519
 import scorex.transaction.TransactionModule
+import scorex.transaction.box.Proposition
+import scorex.transaction.proof.Signature25519
+
 import scala.util.Try
 
 
-class BasicMessagesRepo[TM <: TransactionModule]()(implicit val transactionalModule: TM,
-                                            consensusModule: ConsensusModule[TM]) {
+class BasicMessagesRepo[P <: Proposition, CData <: ConsensusData, TData <: TransactionalData[_], B <: Block[P, CData, TData]]()
+                                                                              (implicit val transactionalModule: TransactionModule[P, _, TData],
+                                                                               consensusModule: ConsensusModule[P, CData, B]) {
+
+  type BlockId = ConsensusData.BlockId
 
   object GetPeersSpec extends MessageSpec[Unit] {
     override val messageCode: Message.MessageCode = 1: Byte
@@ -96,41 +102,41 @@ class BasicMessagesRepo[TM <: TransactionModule]()(implicit val transactionalMod
     override val messageName: String = "Signatures message"
   }
 
-  object GetBlockSpec extends MessageSpec[Block.BlockId] {
+  object GetBlockSpec extends MessageSpec[BlockId] {
     override val messageCode: MessageCode = 22: Byte
     override val messageName: String = "GetBlock message"
 
-    override def serializeData(id: Block.BlockId): Array[Byte] = id
+    override def serializeData(id: BlockId): Array[Byte] = id
 
-    override def deserializeData(bytes: Array[Byte]): Try[Block.BlockId] = Try {
+    override def deserializeData(bytes: Array[Byte]): Try[BlockId] = Try {
       require(bytes.length == consensusModule.BlockIdLength, "Data does not match length")
       bytes
     }
   }
 
-  object BlockMessageSpec extends MessageSpec[Block] {
+  object BlockMessageSpec extends MessageSpec[B] {
     override val messageCode: MessageCode = 23: Byte
 
     override val messageName: String = "Block message"
 
-    override def serializeData(block: Block): Array[Byte] = block.bytes
+    override def serializeData(block: B): Array[Byte] = block.bytes
 
-    override def deserializeData(bytes: Array[Byte]): Try[Block] = Block.parseBytes(bytes)
+    override def deserializeData(bytes: Array[Byte]): Try[B] = Block.parse(bytes)(consensusModule, transactionalModule)
   }
 
-  object ScoreMessageSpec extends MessageSpec[History.BlockchainScore] {
+  object ScoreMessageSpec extends MessageSpec[BigInt] {
     override val messageCode: MessageCode = 24: Byte
 
     override val messageName: String = "Score message"
 
-    override def serializeData(score: History.BlockchainScore): Array[Byte] = {
+    override def serializeData(score: BigInt): Array[Byte] = {
       val scoreBytes = score.toByteArray
       val bb = java.nio.ByteBuffer.allocate(scoreBytes.length)
       bb.put(scoreBytes)
       bb.array()
     }
 
-    override def deserializeData(bytes: Array[Byte]): Try[History.BlockchainScore] = Try {
+    override def deserializeData(bytes: Array[Byte]): Try[BigInt] = Try {
       BigInt(1, bytes)
     }
   }

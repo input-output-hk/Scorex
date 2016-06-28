@@ -29,6 +29,8 @@ case class PrivateKey25519Holder(override val secret: PrivateKey25519,
                                  override val publicCommitment: PublicKey25519Proposition) extends SecretHolder[PublicKey25519Proposition, Signature25519] {
   override type Secret = PrivateKey25519
 
+  lazy val address = publicCommitment.address
+
   override def sign(message: Array[Byte]): Signature25519 =
     Signature25519(Curve25519.sign(secret.unsized, message))
 
@@ -49,4 +51,10 @@ trait SecretHolderGenerator[SH <: SecretHolder[_, _]] {
   def generateKeys(randomSeed: Array[Byte]): SH
 
   def parse(bytes: Array[Byte]): Try[SH]
+}
+
+object SecretGenerator25519 extends SecretHolderGenerator[PrivateKey25519Holder] {
+  override def generateKeys(randomSeed: Array[Byte]): PrivateKey25519Holder = ???
+
+  override def parse(bytes: Array[Byte]): Try[PrivateKey25519Holder] = ???
 }

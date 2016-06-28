@@ -30,7 +30,8 @@ class PeerSynchronizer(application: Application) extends ViewSynchronizer with S
   override def preStart: Unit = {
     super.preStart()
 
-    val stn = NetworkController.SendToNetwork(Message(GetPeersSpec, Right(), None), SendToRandom)
+    val msg = Message[Unit](GetPeersSpec, Right(Unit), None)
+    val stn = NetworkController.SendToNetwork(msg, SendToRandom)
     context.system.scheduler.schedule(2.seconds, 10.seconds)(networkControllerRef ! stn)
   }
 

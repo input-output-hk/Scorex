@@ -6,7 +6,7 @@ import scorex.lagonaki.integration._
 import scorex.lagonaki.integration.api._
 import scorex.lagonaki.unit._
 import scorex.transaction.state.StateTest
-import scorex.transaction.state.database.blockchain.BlockTreeSpecification
+import scorex.consensus.blockchain.BlockTreeSpecification
 
 class LagonakiTestSuite extends Suites(
   //unit tests

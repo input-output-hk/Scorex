@@ -1,24 +1,30 @@
-package scorex.transaction.state.database.blockchain
+package scorex.consensus.blockchain
 
 import org.h2.mvstore.{MVMap, MVStore}
-import scorex.block.Block
-import scorex.block.Block.BlockId
-import scorex.consensus.{BlockChain, History, ConsensusModule}
-import History.BlockchainScore
+import scorex.block.{Block, ConsensusData, TransactionalData}
+import scorex.consensus.{BlockChain, ConsensusModule}
 import scorex.transaction.box.Proposition
-import scorex.transaction.TransactionModule
+import scorex.transaction.{Transaction, TransactionModule}
 import scorex.utils.ScorexLogging
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
+
 /**
   * If no datafolder provided, blockchain lives in RAM (useful for tests)
   */
-class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
-                      (implicit consensusModule: ConsensusModule[TM],
-                       transactionModule: TM)
-  extends BlockChain with ScorexLogging {
+trait StoredBlockchain[P <: Proposition, TX <: Transaction[P, TX], CData <: ConsensusData,
+B <: Block[P, CData, _ <: TransactionalData[TX]]]
+  extends BlockChain[P, CData, B] with ScorexLogging {
+  this: ConsensusModule[P, CData, B] =>
+
+  val dataFolderOpt: Option[String]
+  val transactionModule: TransactionModule[P, _, _]
+
+  private val self = this
+
+  //compiler hangs if uncomment: private implicit val consensusModule: ConsensusModule[P, CData, B] = this
 
   case class BlockchainPersistence(database: MVStore) {
     val blocks: MVMap[Int, Array[Byte]] = database.openMap("blocks")
@@ -28,15 +34,18 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
     //if there are some uncommited changes from last run, discard'em
     if (signatures.size() > 0) database.rollback()
 
-    def writeBlock(height: Int, block: Block): Try[Unit] = Try {
+    def writeBlock(height: Int, block: B): Try[Unit] = Try {
       blocks.put(height, block.bytes)
-      scoreMap.put(height, score() + block.consensusModule.blockScore(block)(block.transactionModule))
-      signatures.put(height, block.id)
+      scoreMap.put(height, score() + blockScore(block)(transactionModule))
+      signatures.put(height, id(block))
       database.commit()
     }
 
-    def readBlock(height: Int): Option[Block] =
-      Try(Option(blocks.get(height))).toOption.flatten.flatMap(b => Block.parseBytes(b).toOption)
+    def readBlock(height: Int): Option[B] =
+      Try(Option(blocks.get(height)))
+        .toOption
+        .flatten
+        .flatMap(b => Block.parse(b)(self, transactionModule).toOption)
 
     def deleteBlock(height: Int): Unit = {
       blocks.remove(height)
@@ -50,7 +59,7 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
 
     def heightOf(id: BlockId): Option[Int] = signatures.find(_._2.sameElements(id)).map(_._1)
 
-    def score(): BlockchainScore = if (height() > 0) scoreMap.get(height()) else 0
+    def score(): BigInt = if (height() > 0) scoreMap.get(height()) else 0
 
   }
 
@@ -65,10 +74,10 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
 
   log.info(s"Initialized blockchain in $dataFolderOpt with ${height()} blocks")
 
-  override private[transaction] def appendBlock(block: Block): Try[Seq[Block]] = synchronized {
+  override def appendBlock(block: B): Try[Unit] = synchronized {
     Try {
-      val parent = block.parentId
-      if ((height() == 0) || (lastBlock.id sameElements parent)) {
+      val parent = parentId(block)
+      if ((height() == 0) || (id(lastBlock) sameElements parent)) {
         val h = height() + 1
         blockStorage.writeBlock(h, block) match {
           case Success(_) => Seq(block)
@@ -80,14 +89,13 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
     }
   }
 
-  override private[transaction] def discardBlock(): BlockChain = synchronized {
+  override def discardBlock(): Try[Unit] = synchronized {
     require(height() > 1, "Chain is empty or contains genesis block only, can't make rollback")
     val h = height()
-    blockStorage.deleteBlock(h)
-    this
+    Try(blockStorage.deleteBlock(h))
   }
 
-  override def blockAt(height: Int): Option[Block] = synchronized {
+  override def blockAt(height: Int): Option[B] = synchronized {
     blockStorage.readBlock(height)
   }
 
@@ -98,23 +106,19 @@ class StoredBlockchain[TM <: TransactionModule](dataFolderOpt: Option[String])
 
   override def height(): Int = blockStorage.height()
 
-  override def score(): BlockchainScore = blockStorage.score()
+  override def score(): BigInt = blockStorage.score()
 
-  override def heightOf(blockSignature: Array[Byte]): Option[Int] = blockStorage.heightOf(blockSignature)
+  override def heightOf(blockSignature: BlockId): Option[Int] = blockStorage.heightOf(blockSignature)
 
-  override def blockById(blockId: BlockId): Option[Block] = heightOf(blockId).flatMap(blockAt)
+  override def blockById(blockId: BlockId): Option[B] = heightOf(blockId).flatMap(blockAt)
 
-  override def children(block: Block): Seq[Block] = heightOf(block).flatMap(h => blockAt(h + 1)).toSeq
+  override def children(blockId: BlockId): Seq[B] =
+    heightOf(blockId).flatMap(h => blockAt(h + 1)).toSeq
 
-  override def generatedBy(prop: Proposition): Seq[Block] =
-    (1 to height()).toStream.flatMap { h =>
+  override def generatedBy(prop: P): Seq[B] =
+    (1 to height()).flatMap { h =>
       blockAt(h).flatMap { block =>
-        if (block.consensusModule.producers(block).contains(prop)) Some(block) else None
-      }
+        if (this.producers(block).contains(prop)) Some(block) else None
+      }: Option[B]
     }
-
-  override def toString: String = ((1 to height()) map { case h =>
-    val bl = blockAt(h).get
-    s"$h -- ${bl.id.mkString} -- ${bl.parentId.mkString}"
-  }).mkString("\n")
 }

@@ -1,6 +1,6 @@
 name := "scorex-basics"
 
-resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
+resolvers += Resolver.sonatypeRepo("releases")
 
 libraryDependencies ++=
     Dependencies.serialization ++

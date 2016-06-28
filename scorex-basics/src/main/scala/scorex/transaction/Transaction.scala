@@ -1,7 +1,7 @@
 package scorex.transaction
 
 import com.google.common.primitives.Longs
-import play.api.libs.json.JsObject
+import io.circe.Json
 import scorex.serialization.{BytesSerializable, JsonSerializable}
 import scorex.transaction.box.{Box, BoxUnlocker, Proposition}
 import scorex.transaction.state.MinimalState
@@ -16,7 +16,7 @@ case class StateChanges[P <: Proposition](toRemove: Set[Box[P]], toAppend: Set[B
   * A transaction is an atomic state modifier
   */
 
-abstract class Transaction[P <: Proposition] extends BytesSerializable with JsonSerializable {
+abstract class Transaction[P <: Proposition, TX <: Transaction[P, TX]] extends BytesSerializable with JsonSerializable {
 
   def fee: Long
 
@@ -26,22 +26,22 @@ abstract class Transaction[P <: Proposition] extends BytesSerializable with Json
     * A transaction could be serialized into JSON
     * A Transaction opens existing boxes and creates new ones
     */
-  def json: JsObject
+  def json: Json
 
-  def validate(state: MinimalState[P]): Try[Unit]
+  def validate(state: MinimalState[P, TX]): Try[Unit]
 
-  def changes(state: MinimalState[P]): Try[StateChanges[P]]
+  def changes(state: MinimalState[P, TX]): Try[StateChanges[P]]
 
   //todo: move to some utils class
   protected def toTry(b: Boolean, msg: String): Try[Unit] = b match {
-    case true => Success()
+    case true => Success(Unit)
     case false => Failure(new Exception(msg))
   }
 
   val messageToSign: Array[Byte]
 }
 
-abstract class BoxTransaction[P <: Proposition] extends Transaction[P] {
+abstract class BoxTransaction[P <: Proposition] extends Transaction[P, BoxTransaction[P]] {
 
   val unlockers: Traversable[BoxUnlocker[P]]
   val newBoxes: Traversable[Box[P]]
@@ -65,7 +65,7 @@ abstract class BoxTransaction[P <: Proposition] extends Transaction[P] {
     * @param state - state to check a transaction against
     * @return
     */
-  override def validate(state: MinimalState[P]): Try[Unit] = {
+  override def validate(state: MinimalState[P, BoxTransaction[P]]): Try[Unit] = {
     lazy val statelessValid = toTry(fee >= 0, "Negative fee")
 
     lazy val statefulValid = {
@@ -84,7 +84,7 @@ abstract class BoxTransaction[P <: Proposition] extends Transaction[P] {
 
       boxesSumTry flatMap { openSum =>
         newBoxes.map(_.value).sum == openSum - fee match {
-          case true => Success()
+          case true => Success[Unit](Unit)
           case false => Failure(new Exception(""))
         }
       }

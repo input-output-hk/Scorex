@@ -9,18 +9,18 @@ import scala.util.Try
   * Abstract functional interface of state which is a result of a sequential blocks applying
   */
 
-trait MinimalState[P <: Proposition] {
-  val version: Int
+trait MinimalState[P <: Proposition, TX <: Transaction[P, TX]] {
+  def version: Int
 
-  def isValid(tx: Transaction[P]): Boolean = tx.validate(this).isSuccess
+  def isValid(tx: TX): Boolean = tx.validate(this).isSuccess
 
-  def areValid(txs: Seq[Transaction[P]]): Boolean = txs.forall(isValid)
+  def areValid(txs: Seq[TX]): Boolean = txs.forall(isValid)
 
-  def filterValid(txs: Seq[Transaction[P]]): Seq[Transaction[P]] = txs.filter(isValid)
+  def filterValid(txs: Seq[TX]): Seq[TX] = txs.filter(isValid)
 
-  def processBlock(block: Block): Try[MinimalState[P]]
+  def processBlock(block: Block[P, _, _]): Try[Unit]
 
-  def rollbackTo(height: Int): Try[MinimalState[P]]
+  def rollbackTo(height: Int): Try[Unit]
 
   def closedBox(boxId: Array[Byte]): Option[Box[P]]
 }

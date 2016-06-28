@@ -2,15 +2,14 @@ package scorex.network
 
 import akka.actor.Props
 import scorex.app.Application
-import scorex.block.Block
-import scorex.block.Block.BlockId
-import scorex.consensus.History
+import scorex.block.{ConsensusData, Block}
+import scorex.transaction.TransactionModule
+import scorex.utils.BlockTypeable
 import scorex.consensus.mining.BlockGeneratorController._
 import scorex.crypto.encode.Base58
 import scorex.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.network.ScoreObserver.{ConsideredValue, GetScore, UpdateScore}
 import scorex.network.message.Message
-import scorex.transaction.Transaction
 import scorex.utils.ScorexLogging
 import shapeless.syntax.typeable._
 
@@ -19,19 +18,24 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 //todo: write tests
-class HistorySynchronizer[TX <: Transaction[_]](application: Application) extends ViewSynchronizer with ScorexLogging {
+class HistorySynchronizer(val application: Application) extends ViewSynchronizer with ScorexLogging {
 
   import HistorySynchronizer._
   import application.basicMessagesSpecsRepo._
 
+  private type P = application.P
+  type CData = application.CData
+  type TData = application.TData
+  type B = application.BType
   private implicit val consensusModule = application.consensusModule
-  private implicit val transactionalModule = application.transactionModule
+  private implicit val transactionalModule:TransactionModule[P, _, TData] = application.transactionModule
+  private implicit val blockTypeable = new BlockTypeable[P, CData, TData]
 
   override val messageSpecs = Seq(ScoreMessageSpec, SignaturesSpec, BlockMessageSpec)
 
   private lazy val scoreObserver = context.actorOf(Props(classOf[ScoreObserver], self))
 
-  private lazy val history = application.history
+  private lazy val history = application.consensusModule
 
   protected override lazy val networkControllerRef = application.networkController
 
@@ -45,7 +49,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
     super.preStart()
     //todo: make configurable
     context.system.scheduler.schedule(1.second, 2.seconds) {
-      val msg = Message(ScoreMessageSpec, Right(history.score()), None)
+      val msg = Message(ScoreMessageSpec, Right(consensusModule.score()), None)
       networkControllerRef ! NetworkController.SendToNetwork(msg, SendToRandom)
     }
 
@@ -63,12 +67,12 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
         sender() ! status.name
 
       //todo: check sender
-      case DataFromPeer(msgId, score: History.BlockchainScore, connectedPeer)
+      case DataFromPeer(msgId, score: BigInt, connectedPeer)
         if msgId == ScoreMessageSpec.messageCode =>
 
         scoreObserver ! UpdateScore(Some(connectedPeer -> score))
 
-      case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
+      case ConsideredValue(Some(networkScore: BigInt), witnesses) =>
 
       case ConsideredValue(None, _) =>
         log.info("Got no score from outer world")
@@ -85,11 +89,11 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
     }: Receive)
 
   def syncing: Receive = state(HistorySynchronizer.Syncing, {
-    case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
+    case ConsideredValue(Some(networkScore: BigInt), witnesses) =>
       val localScore = history.score()
       if (networkScore > localScore) {
         log.info(s"networkScore=$networkScore > localScore=$localScore")
-        val lastIds = history.lastBlocks(100).map(_.id)
+        val lastIds = history.lastBlocks(100).map(consensusModule.id)
         val msg = Message(GetSignaturesSpec, Right(lastIds), None)
         networkControllerRef ! NetworkController.SendToNetwork(msg, SendToChosen(witnesses))
         gotoGettingExtension(networkScore, witnesses)
@@ -98,7 +102,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
 
   def gettingExtension(betterScore: BigInt, witnesses: Seq[ConnectedPeer]): Receive = state(HistorySynchronizer.GettingExtension, {
     //todo: aggregating function for block ids (like score has) and blockIds type
-    case DataFromPeer(msgId, blockIds: Seq[Block.BlockId]@unchecked, connectedPeer)
+    case DataFromPeer(msgId, blockIds: Seq[BlockId]@unchecked, connectedPeer)
       if msgId == SignaturesSpec.messageCode &&
         witnesses.contains(connectedPeer) => //todo: ban if non-expected sender
 
@@ -106,9 +110,9 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
       val common = blockIds.head
       log.debug(s"Got blockIds: ${blockIds.map(id => Base58.encode(id))}")
 
-      val toDownload = blockIds.tail.filter(b => !application.history.contains(b))
-      if (application.history.contains(common) && toDownload.nonEmpty) {
-        Try(application.consensusModule.removeAfter(common)) //todo we don't need this call for blockTree
+      val toDownload = blockIds.tail.filter(b => !history.contains(b))
+      if (consensusModule.contains(common) && toDownload.nonEmpty) {
+        Try(consensusModule.removeAfter(common)(transactionalModule)) //todo we don't need this call for blockTree
         gotoGettingBlocks(witnesses, toDownload.map(_ -> None))
         blockIds.tail.foreach { blockId =>
           val msg = Message(GetBlockSpec, Right(blockId), None)
@@ -116,20 +120,21 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
           networkControllerRef ! NetworkController.SendToNetwork(msg, stn)
         }
       } else {
-        log.warn(s"Strange blockIds: $blockIds(${application.history.contains(common)})")
+        log.warn(s"Strange blockIds: $blockIds(${consensusModule.contains(common)})")
         gotoSyncing()
       }
   }: Receive)
 
-  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block])]): Receive =
+  def gettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[B])]): Receive =
     state(HistorySynchronizer.GettingBlock, {
 
-      case DataFromPeer(msgId, block: Block@unchecked, connectedPeer)
-        if msgId == BlockMessageSpec.messageCode && block.cast[Block].isDefined =>
+      case DataFromPeer(msgId, block: B@unchecked, connectedPeer)
+        if msgId == BlockMessageSpec.messageCode
+          && block.cast[Block[P, CData, TData]].isDefined =>
 
         lastUpdate = System.currentTimeMillis()
-        val blockId = block.id
-        log.info("Got block: " + block.encodedId)
+        val blockId = consensusModule.id(block)
+        log.info("Got block: " + consensusModule.encodedId(block))
 
         blocks.indexWhere(_._1.sameElements(blockId)) match {
           case i: Int if i == -1 => gotoGettingBlocks(witnesses, blocks)
@@ -140,7 +145,9 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
               log.info(s"Going to process ${toProcess.size} blocks")
               toProcess.find(bp => !processNewBlock(bp, local = false)).foreach { case failedBlock =>
                 log.warn(s"Can't apply block: ${failedBlock.json}")
-                if (history.lastBlock.id sameElements failedBlock.parentId) {
+                val hLastId = consensusModule.id(history.lastBlock)
+                val fpId = consensusModule.parentId(failedBlock)
+                if (hLastId sameElements fpId) {
                   connectedPeer.handlerRef ! PeerConnectionHandler.Blacklist
                 }
                 gotoSyncing()
@@ -153,14 +160,14 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
 
   //accept only new block from local or remote
   def synced: Receive = state(HistorySynchronizer.Synced, {
-    case block: Block =>
+    case block: B =>
       processNewBlock(block, local = true)
 
-    case ConsideredValue(Some(networkScore: History.BlockchainScore), witnesses) =>
+    case ConsideredValue(Some(networkScore: BigInt), witnesses) =>
       if (networkScore > history.score()) gotoGettingExtension(networkScore, witnesses)
 
-    case DataFromPeer(msgId, block: Block@unchecked, _)
-      if msgId == BlockMessageSpec.messageCode && block.cast[Block].isDefined =>
+    case DataFromPeer(msgId, block: B@unchecked, _)
+      if msgId == BlockMessageSpec.messageCode && block.cast[Block[P, CData, TData]].isDefined =>
       processNewBlock(block, local = false)
   }: Receive)
 
@@ -178,7 +185,7 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
     context become gettingExtension(betterScore, witnesses)
   }
 
-  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[Block])]): Receive = {
+  private def gotoGettingBlocks(witnesses: Seq[ConnectedPeer], blocks: Seq[(BlockId, Option[B])]): Receive = {
     log.debug("Transition to gettingBlocks")
     context become gettingBlocks(witnesses, blocks)
     gettingBlocks(witnesses, blocks)
@@ -191,8 +198,8 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
     synced
   }
 
-  private def processNewBlock(block: Block, local: Boolean): Boolean = Try {
-    if (block.isValid) {
+  private def processNewBlock(block: B, local: Boolean): Boolean = Try {
+    if (Block.isValid[P, CData, TData, B](block)(consensusModule, transactionalModule)) {
       log.info(s"New block(local: $local): ${block.json}")
 
       if (local) networkControllerRef ! SendToNetwork(Message(BlockMessageSpec, Right(block), None), Broadcast)
@@ -201,9 +208,9 @@ class HistorySynchronizer[TX <: Transaction[_]](application: Application) extend
       val oldScore = history.score()
       consensusModule.appendBlock(block) match {
         case Success(_) =>
-          block.transactionModule.clearFromUnconfirmed(block.transactionDataField.value)
+          transactionalModule.clearFromUnconfirmed(block.transactionalData)
           log.info(
-            s"""Block ${block.encodedId} appended:
+            s"""Block ${consensusModule.encodedId(block)} appended:
             (height, score) = ($oldHeight, $oldScore) vs (${history.height()}, ${history.score()})""")
           true
         case Failure(e) =>
@@ -240,7 +247,7 @@ object HistorySynchronizer {
     override val name = "synced"
   }
 
-  case class CheckBlock(id: BlockId)
+  case class CheckBlock(id: ConsensusData.BlockId)
 
   case object GetStatus
 

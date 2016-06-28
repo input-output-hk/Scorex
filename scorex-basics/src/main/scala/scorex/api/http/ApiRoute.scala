@@ -5,7 +5,7 @@ import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.{Directive0, Directives, Route}
 import akka.util.Timeout
-import play.api.libs.json.JsValue
+import io.circe.Json
 import scorex.app.Application
 import scorex.crypto.hash.{CryptographicHash, SecureCryptographicHash}
 
@@ -24,21 +24,21 @@ trait ApiRoute extends Directives with CommonApiFunctions {
 
   def actorRefFactory: ActorRefFactory = context
 
-  def getJsonRoute(fn: Future[JsValue]): Route =
+  def getJsonRoute(fn: Future[Json]): Route =
     jsonRoute(Await.result(fn, timeout.duration), get)
 
-  def getJsonRoute(fn: JsValue): Route = jsonRoute(fn, get)
+  def getJsonRoute(fn: Json): Route = jsonRoute(fn, get)
 
-  def postJsonRoute(fn: JsValue): Route = jsonRoute(fn, post)
+  def postJsonRoute(fn: Json): Route = jsonRoute(fn, post)
 
-  def postJsonRoute(fn: Future[JsValue]): Route = jsonRoute(Await.result(fn, timeout.duration), post)
+  def postJsonRoute(fn: Future[Json]): Route = jsonRoute(Await.result(fn, timeout.duration), post)
 
-  def deleteJsonRoute(fn: JsValue): Route = jsonRoute(fn, delete)
+  def deleteJsonRoute(fn: Json): Route = jsonRoute(fn, delete)
 
-  def deleteJsonRoute(fn: Future[JsValue]): Route = jsonRoute(Await.result(fn, timeout.duration), delete)
+  def deleteJsonRoute(fn: Future[Json]): Route = jsonRoute(Await.result(fn, timeout.duration), delete)
 
-  private def jsonRoute(fn: JsValue, method: Directive0): Route = method {
-    val resp = complete(HttpEntity(ContentTypes.`application/json`, fn.toString()))
+  private def jsonRoute(fn: Json, method: Directive0): Route = method {
+    val resp = complete(HttpEntity(ContentTypes.`application/json`, fn.toString))
     withCors(resp)
   }
 
@@ -50,7 +50,7 @@ trait ApiRoute extends Directives with CommonApiFunctions {
   def withAuth(route: => Route): Route = {
     optionalHeaderValueByName("api_key") { case keyOpt =>
       if (isValid(keyOpt)) route
-      else complete(HttpEntity(ContentTypes.`application/json`, ApiKeyNotValid.json.toString()))
+      else complete(HttpEntity(ContentTypes.`application/json`, ApiError.apiKeyNotValid.toString()))
     }
   }
 

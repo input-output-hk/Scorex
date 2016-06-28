@@ -10,9 +10,13 @@ object Dependencies {
     "net.databinder.dispatch" %% "dispatch-core" % "+" % "test"
   )
 
+  val circeVersion = "0.4.1"
   lazy val serialization = Seq(
-    "com.google.guava" % "guava" % "18.+",
-    "com.typesafe.play" %% "play-json" % "2.4.+"
+    "io.circe" %% "circe-core" % circeVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
+    "org.scodec" %% "scodec-bits" % "1.+",
+    "org.scodec" %% "scodec-core" % "1.+"
   )
 
   lazy val akka = Seq(

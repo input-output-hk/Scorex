@@ -6,21 +6,24 @@ import javax.ws.rs.Path
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.server.Route
 import io.swagger.annotations._
-import play.api.libs.json.{JsValue, Json}
 import scorex.app.Application
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.{FastCryptographicHash, SecureCryptographicHash}
-import scorex.transaction.Transaction
+
+import io.circe._
+import io.circe.generic.auto._
+import io.circe.syntax._
+
 
 @Path("/utils")
 @Api(value = "/utils", description = "Useful functions", position = 3, produces = "application/json")
 case class UtilsApiRoute(override val application: Application)(implicit val context: ActorRefFactory) extends ApiRoute {
   val SeedSize = 32
 
-  private def seed(length: Int): JsValue = {
+  private def seed(length: Int): Json = {
     val seed = new Array[Byte](length)
     new SecureRandom().nextBytes(seed) //seed mutated here!
-    Json.obj("seed" -> Base58.encode(seed))
+    Map("seed" -> Base58.encode(seed)).asJson
   }
 
   override val route = pathPrefix("utils") {
@@ -63,7 +66,7 @@ case class UtilsApiRoute(override val application: Application)(implicit val con
       entity(as[String]) { message =>
         withAuth {
           postJsonRoute {
-            Json.obj("message" -> message, "hash" -> Base58.encode(SecureCryptographicHash(message)))
+            Map("message" -> message, "hash" -> Base58.encode(SecureCryptographicHash(message))).asJson
           }
         }
       }
@@ -83,7 +86,7 @@ case class UtilsApiRoute(override val application: Application)(implicit val con
       entity(as[String]) { message =>
         withAuth {
           postJsonRoute {
-            Json.obj("message" -> message, "hash" -> Base58.encode(FastCryptographicHash(message)))
+            Map("message" -> message, "hash" -> Base58.encode(FastCryptographicHash(message))).asJson
           }
         }
       }

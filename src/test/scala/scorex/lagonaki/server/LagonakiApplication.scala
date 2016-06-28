@@ -4,6 +4,7 @@ import akka.actor.Props
 import com.typesafe.config.ConfigFactory
 import scorex.api.http._
 import scorex.app.{Application, ApplicationVersion}
+import scorex.consensus.api.http.BlocksApiRoute
 import scorex.consensus.nxt.api.http.NxtConsensusApiRoute
 import scorex.lagonaki.mocks.ConsensusMock
 import scorex.network._
@@ -11,7 +12,7 @@ import scorex.transaction._
 
 import scala.reflect.runtime.universe._
 
-class LagonakiApplication(val settingsFilename: String) extends Application[LagonakiTransaction] {
+class LagonakiApplication(val settingsFilename: String) extends Application {
 
   override val applicationName = "lagonaki"
 
@@ -29,8 +30,6 @@ class LagonakiApplication(val settingsFilename: String) extends Application[Lago
 
   override implicit lazy val transactionModule: SimpleTransactionModule = new SimpleTransactionModule()(settings, this)
 
-  override lazy val blockStorage = transactionModule.blockStorage
-
   lazy val consensusApiRoute = new NxtConsensusApiRoute(this)
 
   override lazy val apiRoutes = Seq(
@@ -45,9 +44,9 @@ class LagonakiApplication(val settingsFilename: String) extends Application[Lago
   )
 
   override lazy val apiTypes = Seq(
-    typeOf[BlocksApiRoute[AccountTransaction]],
+    typeOf[BlocksApiRoute],
     typeOf[TransactionsApiRoute],
-    typeOf[NxtConsensusApiRoute[AccountTransaction]],
+    typeOf[NxtConsensusApiRoute],
     typeOf[WalletApiRoute],
     typeOf[PaymentApiRoute],
     typeOf[UtilsApiRoute],
@@ -56,10 +55,6 @@ class LagonakiApplication(val settingsFilename: String) extends Application[Lago
   )
 
   override lazy val additionalMessageSpecs = TransactionalMessagesRepo.specs
-
-  //checks
-  require(transactionModule.balancesSupport)
-  require(transactionModule.accountWatchingSupport)
 
   actorSystem.actorOf(Props(classOf[UnconfirmedPoolSynchronizer], this))
 }

@@ -8,7 +8,6 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.lagonaki.mocks.BlockMock
 import scorex.transaction.account.{Account, PrivateKeyAccount, PublicKeyAccount}
-import scorex.transaction.state.database.blockchain.PersistentLagonakiState
 import scorex.transaction.{GenesisTransaction, LagonakiTransaction, PaymentTransaction}
 import scorex.utils._
 

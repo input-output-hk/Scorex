@@ -3,14 +3,15 @@ package scorex.transaction.state.authenticated
 import scorex.crypto.authds.storage.StorageType
 import scorex.crypto.authds.{AuthenticatedDictionary, DataProof}
 import scorex.crypto.hash.CryptographicHash
+import scorex.transaction.Transaction
 import scorex.transaction.box.Proposition
 import scorex.transaction.state.MinimalState
 
 import scala.util.Try
 
 
-trait AuthenticatedBoxMinimalState[L <: Proposition, HashFunction <: CryptographicHash]
-  extends MinimalState[L] {
+trait AuthenticatedBoxMinimalState[P <: Proposition, TX <: Transaction[P, TX], HashFunction <: CryptographicHash]
+  extends MinimalState[P, TX] {
 
   type ElementProof <: DataProof
   type Storage <: StorageType
@@ -21,5 +22,5 @@ trait AuthenticatedBoxMinimalState[L <: Proposition, HashFunction <: Cryptograph
 
   val hashFunction: HashFunction
 
-  override def rollbackTo(height: Int): Try[AuthenticatedBoxMinimalState[L, HashFunction]]
+  override def rollbackTo(height: Int): Try[Unit]
 }

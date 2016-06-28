@@ -1,21 +1,17 @@
 package scorex.api.http
 
-import play.api.libs.json.{JsObject, JsValue, Json}
-import scorex.block.Block
-import scorex.consensus.History
-import scorex.crypto.encode.Base58
-
+import io.circe.Json
+import scorex.block.{Block, ConsensusData}
+import scorex.consensus.BlockChain
+import scorex.transaction.box.Proposition
 
 trait CommonApiFunctions {
+  import ApiError._
 
-  def json(t: Throwable): JsObject = Json.obj("error" -> Unknown.id, "message" -> t.getMessage)
-
-  protected[api] def withBlock(history: History, encodedSignature: String)
-                              (action: Block => JsValue): JsValue =
-    Base58.decode(encodedSignature).toOption.map { signature =>
-      history.blockById(signature) match {
-        case Some(block) => action(block)
-        case None => BlockNotExists.json
-      }
-    }.getOrElse(InvalidSignature.json)
+  protected[api] def withBlock[P <: Proposition, CData <: ConsensusData, B <: Block[P, CData, _]](history: BlockChain[P, CData, B], encodedId: String)
+                                                      (action: B => Json): Json =
+    history.blockById(encodedId) match {
+      case Some(block) => action(block)
+      case None => blockNotExists
+    }
 }
