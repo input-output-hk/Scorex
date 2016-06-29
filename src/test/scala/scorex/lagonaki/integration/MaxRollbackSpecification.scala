@@ -41,7 +41,7 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
   implicit val consensusModule = peer.consensusModule
   implicit val transactionModule = peer.transactionModule
 
-  test("fork test") {
+  test("short fork") {
 
     val bestPeer = setUp(maxRollback / 2, strict = false)
 
@@ -55,17 +55,17 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
     checkStates(
       testTimeout,
       Seq(
-        HistorySynchronizer.Synced,
         HistorySynchronizer.GettingExtension,
         HistorySynchronizer.GettingBlock,
         HistorySynchronizer.Synced),
-      syncingPeer)
+      syncingPeer,
+      waitForFirst = true)
 
     syncingPeer.blockStorage.history.contains(bestPeerLastBlock) shouldBe true
     syncingPeer.history.score() >= bestPeerScore shouldBe true
   }
 
-  test("fork test 2") {
+  test("too long fork") {
 
     val bestPeer = setUp(maxRollback + 1, strict = true)
 
@@ -95,7 +95,7 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
                         current: Option[HistorySynchronizer.Status],
                         follow: Seq[HistorySynchronizer.Status],
                         historySynchronizer: ActorRef): Unit = {
-    val delay = 500 milliseconds
+    val delay = 100 milliseconds
 
     implicit val t = Timeout(delay)
 
