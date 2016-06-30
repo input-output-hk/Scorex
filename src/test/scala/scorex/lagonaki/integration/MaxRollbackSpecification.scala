@@ -27,7 +27,7 @@ class MaxRollbackSpecification extends FunSuite with Matchers with BeforeAndAfte
 
   import TestingCommons.initialize
 
-  val testTimeout = 60.seconds
+  val testTimeout = 100.seconds
 
   val peers = initialize(Seq("settings-local1.json", "settings-local2.json"))
 
