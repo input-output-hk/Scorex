@@ -50,11 +50,7 @@ object TestingCommons {
     }
 
     apps.foreach { a =>
-      if (a.wallet.privateKeyAccounts().isEmpty) {
-        val accs = a.wallet.generateNewAccounts(3)
-        val b = accs.map(acc => a.consensusModule.generatingBalance(acc)(a.transactionModule))
-        b
-      }
+      if (a.wallet.privateKeyAccounts().isEmpty) a.wallet.generateNewAccounts(3)
       untilTimeout(20.seconds, 1.second) {
         val request = Http(url(peerUrl(a) + "/consensus/algo").GET)
         val response = Await.result(request, 10.seconds)
