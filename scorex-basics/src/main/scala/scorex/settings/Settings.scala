@@ -55,11 +55,11 @@ trait Settings extends ScorexLogging {
   lazy val nodeName = (p2pSettings \ "nodeName").asOpt[String]
     .getOrElse(Random.nextPrintableChar().toString + nodeNonce)
 
-  val defaultBlacklistResidenceTimeMilliseconds: Long = 10 * 60 * 1000
+  private val DefaultBlacklistResidenceTimeMilliseconds: Long = 10 * 60 * 1000
 
   lazy val blacklistResidenceTimeMilliseconds: Long =
     (p2pSettings \ "blacklistResidenceTimeMilliseconds").asOpt[Long]
-      .getOrElse(defaultBlacklistResidenceTimeMilliseconds)
+      .getOrElse(DefaultBlacklistResidenceTimeMilliseconds)
 
   lazy val localOnly = (p2pSettings \ "localOnly").asOpt[Boolean].getOrElse(false)
 
