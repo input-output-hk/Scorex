@@ -1,7 +1,7 @@
 Scorex - The modular blockchain framework
 =========================
 
-##IMPORTANT: This is repository of outdated version 1 of Scorex framework that is not supported anymore. Second version of Scorex may be found at https://github.com/ScorexFoundation/Scorex.
+**IMPORTANT: This is repository of outdated version 1 of Scorex framework that is not supported anymore. Second version of Scorex may be found at https://github.com/ScorexFoundation/Scorex.**
 
 
 
